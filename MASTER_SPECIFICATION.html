@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ST-LMS · MASTER SPECIFICATION · Highest Authority Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --ink:#06080b;--ink2:#0a0e13;--ink3:#10151c;--line:#1a232c;--line2:#28333d;
+ --bone:#ece6d8;--mute:#7a8591;--mute2:#4b545d;
+ --amber:#f4b400;--teal:#19c3a6;--rose:#ff5d73;--sky:#5aa9ff;--violet:#b388ff;--lime:#9be36b;
+ --gk:rgba(25,195,166,.12);--gs:rgba(244,180,0,.12);--gp:rgba(90,169,255,.13);--gx:rgba(255,93,115,.12);--gv:rgba(179,136,255,.12);
+ --grid:rgba(244,180,0,.03)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Sora',system-ui,sans-serif;background:var(--ink);color:var(--bone);min-height:100vh;overflow-x:hidden;line-height:1.62;font-weight:300}
+#ambient{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+ background:radial-gradient(1100px 600px at 90% -12%,rgba(244,180,0,.07),transparent 60%),
+   radial-gradient(900px 700px at -10% 110%,rgba(25,195,166,.05),transparent 55%),
+   linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+ background-size:auto,auto,52px 52px,52px 52px}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+ background:repeating-linear-gradient(0deg,rgba(255,255,255,.011) 0 1px,transparent 1px 3px);animation:scan 26s linear infinite}
+@keyframes scan{from{background-position:0 0}to{background-position:0 130px}}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.disp{font-family:'Bricolage Grotesque',sans-serif}
+
+.sealbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+ padding:12px 24px;background:linear-gradient(180deg,rgba(6,8,11,.96),rgba(6,8,11,.82));backdrop-filter:blur(9px);border-bottom:1px solid var(--line)}
+.seal{display:flex;align-items:center;gap:12px}
+.stamp{width:46px;height:46px;border:2px solid var(--amber);border-radius:50%;display:grid;place-items:center;
+ font-family:'Bricolage Grotesque';font-weight:800;font-size:9px;color:var(--amber);letter-spacing:.02em;position:relative;flex:none;text-align:center;line-height:1.05;
+ box-shadow:0 0 0 4px rgba(244,180,0,.07);animation:stampPulse 3.4s ease-in-out infinite}
+.stamp::after{content:"";position:absolute;inset:3px;border:1px dashed rgba(244,180,0,.4);border-radius:50%}
+@keyframes stampPulse{0%,100%{box-shadow:0 0 0 4px rgba(244,180,0,.07)}50%{box-shadow:0 0 0 9px rgba(244,180,0,.02)}}
+.seal .t1{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;letter-spacing:.01em;line-height:1}
+.seal .t2{font-family:'JetBrains Mono';font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);margin-top:3px}
+.seal .t2 b{color:var(--rose)}
+.sealbar .spacer{flex:1}
+.chip{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;border:1px solid var(--line);color:var(--mute);display:flex;align-items:center;gap:7px}
+.chip b{color:var(--bone)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--rose);box-shadow:0 0 0 0 rgba(255,93,115,.5);animation:pulse 1.8s infinite}
+.chip.ok .dot{background:var(--teal);animation-name:pulseT}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,93,115,.45)}50%{box-shadow:0 0 0 6px rgba(255,93,115,0)}}
+@keyframes pulseT{0%,100%{box-shadow:0 0 0 0 rgba(25,195,166,.45)}50%{box-shadow:0 0 0 6px rgba(25,195,166,0)}}
+.searchbox{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:0 11px;background:var(--ink2);transition:.18s}
+.searchbox:focus-within{border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.08)}
+.searchbox input{background:none;border:none;color:var(--bone);font-family:'JetBrains Mono';font-size:12px;padding:8px 0;outline:none;width:150px}
+.searchbox input::placeholder{color:var(--mute2)}
+
+.shell{position:relative;z-index:2;display:grid;grid-template-columns:290px 1fr;gap:0;max-width:1520px;margin:0 auto}
+nav.toc{position:sticky;top:69px;align-self:start;height:calc(100vh - 69px);overflow-y:auto;padding:22px 14px 60px 22px;border-right:1px solid var(--line);scrollbar-width:thin}
+nav.toc .nh{font-family:'JetBrains Mono';font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--mute2);padding:0 10px 10px}
+nav.toc .apexnote{font-family:'JetBrains Mono';font-size:9px;color:var(--rose);border:1px solid rgba(255,93,115,.3);background:var(--gx);padding:7px 9px;margin:0 8px 14px;line-height:1.5}
+nav.toc a{display:flex;align-items:center;gap:10px;padding:8px 11px;border-left:2px solid transparent;color:var(--mute);text-decoration:none;font-size:12px;transition:.15s;border-radius:0 4px 4px 0}
+nav.toc a:hover{color:var(--bone);background:var(--ink2)}
+nav.toc a.on{color:var(--bone);border-left-color:var(--amber);background:var(--ink2)}
+nav.toc a .ph{font-family:'JetBrains Mono';font-size:9px;color:var(--amber);width:26px;flex:none}
+nav.toc a .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+nav.toc .progwrap{margin:4px 10px 16px;height:4px;background:var(--line);border-radius:3px;overflow:hidden}
+nav.toc .progwrap i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--rose),var(--amber));transition:width .4s}
+
+main{padding:0 40px 120px;min-width:0}
+
+/* apex banner */
+.apex{position:relative;padding:54px 0 30px;border-bottom:1px solid var(--line);margin-bottom:10px;overflow:hidden}
+.apex .ribbon{position:absolute;top:24px;right:-46px;transform:rotate(35deg);background:var(--rose);color:#1a0608;font-family:'JetBrains Mono';font-weight:700;font-size:9px;letter-spacing:.22em;padding:6px 60px;text-transform:uppercase;box-shadow:0 6px 24px rgba(255,93,115,.3)}
+.apex .ey{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--rose);display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.apex .ey .bar{width:30px;height:1px;background:var(--rose)}
+.apex h1{font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(40px,7vw,92px);line-height:.86;letter-spacing:-.03em}
+.apex h1 em{font-style:normal;color:var(--amber)}
+.apex .sub{font-family:'Bricolage Grotesque';font-weight:500;font-style:italic;font-size:clamp(18px,2.4vw,30px);color:var(--mute);margin-top:14px;max-width:24ch}
+.apex .hier{display:flex;align-items:center;gap:0;margin-top:30px;flex-wrap:wrap;font-family:'JetBrains Mono';font-size:10px;letter-spacing:.08em}
+.apex .hier .node{padding:7px 13px;border:1px solid var(--line);color:var(--mute)}
+.apex .hier .node.top{border-color:var(--rose);color:var(--rose);background:var(--gx);font-weight:700}
+.apex .hier .arr{color:var(--mute2);padding:0 6px}
+
+.doc{scroll-margin-top:84px;padding:14px 0 52px;border-bottom:1px solid var(--line);margin-bottom:8px;position:relative}
+.doc:last-child{border-bottom:none}
+.doc .ph-tag{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--amber);display:inline-flex;align-items:center;gap:9px;margin-bottom:14px}
+.doc .ph-tag .bar{width:26px;height:1px;background:var(--amber)}
+.doc h2{font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(27px,3.5vw,44px);line-height:.96;letter-spacing:-.02em;margin-bottom:8px}
+.doc h2 em{font-style:normal;color:var(--amber)}
+.doc .lede{color:var(--mute);font-size:15px;max-width:76ch;margin:6px 0 26px}
+.doc .lede b{color:var(--bone);font-weight:500}
+.doc h3{font-family:'Bricolage Grotesque';font-weight:700;font-size:19px;margin:30px 0 12px;display:flex;align-items:center;gap:10px}
+.doc h3 .ix{font-family:'JetBrains Mono';font-size:10px;color:var(--mute2);border:1px solid var(--line);padding:2px 7px;border-radius:3px}
+.doc h4{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:22px 0 9px}
+.doc p{margin:0 0 13px;max-width:82ch}
+.doc p b,.doc li b{color:var(--bone);font-weight:500}
+.doc ul,.doc ol{margin:0 0 14px 0;padding-left:0;list-style:none;max-width:86ch}
+.doc li{padding:5px 0 5px 20px;position:relative}
+.doc li::before{content:"";position:absolute;left:2px;top:13px;width:6px;height:6px;border:1px solid var(--mute2);transform:rotate(45deg)}
+.doc li.ok::before{background:var(--teal);border-color:var(--teal)}
+.doc li.no::before{background:var(--rose);border-color:var(--rose)}
+.doc li.warn::before{background:var(--amber);border-color:var(--amber)}
+.doc code{font-family:'JetBrains Mono';font-size:.86em;color:var(--teal);background:rgba(25,195,166,.08);padding:1px 6px;border-radius:3px}
+.doc .kbd{font-family:'JetBrains Mono';font-size:.82em;color:var(--amber);background:rgba(244,180,0,.08);padding:1px 6px;border-radius:3px}
+
+.tblwrap{overflow-x:auto;margin:6px 0 18px;border:1px solid var(--line);border-radius:4px}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono';font-size:11px;min-width:600px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--ink3);color:var(--amber);font-weight:500;font-size:9px;letter-spacing:.07em;text-transform:uppercase;position:sticky;top:0}
+tbody tr{transition:.12s}tbody tr:hover{background:var(--ink2)}
+td .pill{font-size:9px;letter-spacing:.05em;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.pill.fz{background:var(--gk);color:var(--teal)}.pill.pb{background:var(--gp);color:var(--sky)}
+.pill.rs{background:var(--gs);color:#1a1300}.pill.no{background:var(--gx);color:var(--rose)}
+.pill.vi{background:var(--gv);color:var(--violet)}
+td.y{color:var(--teal);font-weight:700}td.n{color:var(--rose);font-weight:700}td.s{color:var(--amber)}td.x{color:var(--mute2)}
+
+.call{border-left:3px solid var(--amber);background:linear-gradient(90deg,rgba(244,180,0,.05),transparent);padding:14px 18px;margin:16px 0;max-width:86ch}
+.call.freeze{border-left-color:var(--rose);background:linear-gradient(90deg,rgba(255,93,115,.05),transparent)}
+.call.ok{border-left-color:var(--teal);background:linear-gradient(90deg,rgba(25,195,166,.05),transparent)}
+.call .ch{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+.call.freeze .ch{color:var(--rose)}.call.ok .ch{color:var(--teal)}
+.call p{margin:0;font-size:13.5px}
+
+.laws{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:11px;margin:8px 0 18px}
+.law{border:1px solid var(--line);padding:14px 16px;position:relative;overflow:hidden;transition:.18s}
+.law::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--rose);transform:scaleY(0);transform-origin:top;transition:.22s}
+.law:hover{border-color:var(--line2);transform:translateY(-2px)}.law:hover::before{transform:scaleY(1)}
+.law .n{font-family:'JetBrains Mono';font-size:9px;color:var(--rose);letter-spacing:.1em}
+.law .h{font-family:'Bricolage Grotesque';font-weight:700;font-size:14.5px;margin:5px 0 8px}
+.law .d{font-size:12px;color:var(--mute);margin-bottom:8px}
+.law .meta{display:grid;grid-template-columns:auto 1fr;gap:3px 9px;font-size:10.5px;font-family:'JetBrains Mono'}
+.law .meta .k{color:var(--teal)}.law .meta .v{color:var(--bone)}
+.law .meta .v.fb{color:var(--rose)}
+
+.verdict{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 20px}
+.verdict .v{flex:1;min-width:150px;border:1px solid var(--line);padding:16px;text-align:center}
+.verdict .v .big{font-family:'Bricolage Grotesque';font-weight:800;font-size:34px;line-height:1}
+.verdict .v.pass .big{color:var(--teal)}.verdict .v.tens .big{color:var(--amber)}.verdict .v.stop .big{color:var(--rose)}
+.verdict .v .l{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:8px}
+
+.copybtn{position:absolute;top:14px;right:14px;font-family:'JetBrains Mono';font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+ padding:5px 9px;border:1px solid var(--line);background:var(--ink2);color:var(--mute);cursor:pointer;opacity:0;transition:.18s}
+.doc:hover .copybtn{opacity:1}.copybtn:hover{color:var(--amber);border-color:var(--amber)}
+.copybtn.done{color:var(--teal);border-color:var(--teal)}
+
+footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:30px 40px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;color:var(--mute);font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.04em;max-width:1520px;margin:0 auto}
+footer b{color:var(--bone)}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .55s,transform .55s}
+.reveal.in{opacity:1;transform:none}
+@media(max-width:1040px){
+ .shell{grid-template-columns:1fr}
+ nav.toc{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px;padding:14px}
+ nav.toc .nh,nav.toc .progwrap,nav.toc .apexnote{display:none}
+ nav.toc a{border-left:none;border:1px solid var(--line);border-radius:4px;padding:7px 10px}
+ main{padding:0 20px 90px}.apex .ribbon{display:none}
+}
+</style>
+</head>
+<body>
+<canvas id="ambient"></canvas>
+
+<div class="sealbar">
+  <div class="seal">
+    <div class="stamp">APEX<br>DOC</div>
+    <div><div class="t1">ST-LMS · Master Specification</div>
+      <div class="t2">highest authority · <b>supersedes Doc 01–14 on conflict</b></div></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="searchbox"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="q" type="text" placeholder="cari konstitusi…"></div>
+  <div class="chip"><span class="dot"></span>authority <b>APEX</b></div>
+  <div class="chip ok"><span class="dot"></span>freeze <b>LOCKED</b></div>
+  <div class="chip mono" id="wib">--:--:-- WIB</div>
+</div>
+
+<div class="shell">
+<nav class="toc" id="toc">
+  <div class="nh">master constitution</div>
+  <div class="apexnote">Dokumen ini berada di PUNCAK hierarki. Bila bertentangan dengan Doc 01–14, dokumen ini yang menang.</div>
+  <div class="progwrap"><i id="readprog"></i></div>
+  <a href="#s0" data-d="s0"><span class="ph">§0</span><span class="nm">Apex & Authority</span></a>
+  <a href="#s1" data-d="s1"><span class="ph">§1</span><span class="nm">System Identity</span></a>
+  <a href="#s2" data-d="s2"><span class="ph">§2</span><span class="nm">Master Implementation Law</span></a>
+  <a href="#s3" data-d="s3"><span class="ph">§3</span><span class="nm">Constitution Freeze Matrix</span></a>
+  <a href="#s4" data-d="s4"><span class="ph">§4</span><span class="nm">Market Geometry Master</span></a>
+  <a href="#s5" data-d="s5"><span class="ph">§5</span><span class="nm">Indicator Authority Matrix</span></a>
+  <a href="#s6" data-d="s6"><span class="ph">§6</span><span class="nm">Master Trading Lifecycle</span></a>
+  <a href="#s7" data-d="s7"><span class="ph">§7</span><span class="nm">Clone Master</span></a>
+  <a href="#s8" data-d="s8"><span class="ph">§8</span><span class="nm">Knowledge Master</span></a>
+  <a href="#s9" data-d="s9"><span class="ph">§9</span><span class="nm">Snapshot Master</span></a>
+  <a href="#s10" data-d="s10"><span class="ph">§10</span><span class="nm">Prediction Master</span></a>
+  <a href="#s11" data-d="s11"><span class="ph">§11</span><span class="nm">Governance Master</span></a>
+  <a href="#s12" data-d="s12"><span class="ph">§12</span><span class="nm">Build Stop Master</span></a>
+  <a href="#s13" data-d="s13"><span class="ph">§13</span><span class="nm">Implementation Checklist</span></a>
+  <a href="#s14" data-d="s14"><span class="ph">§14</span><span class="nm">Readiness Self-Audit</span></a>
+</nav>
+
+<main id="main">
+
+<!-- §0 APEX -->
+<section class="apex reveal" id="s0">
+  <div class="ribbon">HIGHEST AUTHORITY</div>
+  <div class="ey"><span class="bar"></span>SECTION 00 · AUTHORITY DECLARATION</div>
+  <h1>Master <em>Specification</em></h1>
+  <div class="sub">sumber kebenaran tunggal & tertinggi bagi seluruh Native HTML Market Geometry Intelligence Operating System.</div>
+  <div class="hier">
+    <span class="node top">MASTER_SPECIFICATION</span><span class="arr">▸</span>
+    <span class="node">Doc 01–14</span><span class="arr">▸</span>
+    <span class="node">DOCUMENT_DEPENDENCY</span><span class="arr">▸</span>
+    <span class="node">Native HTML Implementation</span>
+  </div>
+</section>
+
+<div class="call freeze reveal" style="margin-top:18px">
+  <div class="ch">⚠ cara membaca dokumen ini</div>
+  <p>Ini adalah <b>artefak konstitusi</b>, bukan runtime. Tidak ada pipeline/clone/simulator yang dieksekusi di sini; elemen hidup (ambient, reveal, graph, jam WIB) adalah UI pembaca. Seluruh hukum di bawah <b>mengikat</b> implementasi Native-HTML pada PHASE implementasi; pelanggaran = <span class="pill no">BUILD STOP</span>. Dokumen ini merangkum & membekukan Doc 01–14 sebagai satu sumber; pada konflik, <b>dokumen ini menang</b>.</p>
+</div>
+
+<!-- §1 IDENTITY -->
+<section class="doc reveal" id="s1">
+<button class="copybtn" data-copy="s1">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 01 · SYSTEM IDENTITY CONSTITUTION</div>
+<h2>Identitas <em>Sistem</em></h2>
+<p class="lede">Sebelum satu hukum pun, identitas harus beku — karena salah mengidentifikasi sistem menghasilkan salah membangun seluruhnya. ST-LMS didefinisikan secara <b>negatif</b> (apa yang bukan) dan <b>positif</b> (apa yang ia jalankan).</p>
+
+<h3><span class="ix">1.1</span> ST-LMS BUKAN</h3>
+<ul>
+ <li class="no"><b>Trading Bot.</b> Ia tidak mengejar eksekusi; eksekusi adalah Consumer opsional.</li>
+ <li class="no"><b>AI Assistant.</b> Tidak ada model prediktif, tidak ada black-box, tidak ada jawaban natural-language sebagai output inti.</li>
+ <li class="no"><b>Market Scanner.</b> Ia tidak menyaring simbol untuk “peluang”; ia mengamati perilaku geometri simbol yang diberikan.</li>
+ <li class="no"><b>Research Tool biasa / Dashboard Trading.</b> Dashboard hanyalah satu lapisan Consumer/Visualization, bukan inti.</li>
+</ul>
+
+<h3><span class="ix">1.2</span> ST-LMS ADALAH</h3>
+<p>Sebuah <b>Native HTML Market Geometry Intelligence Operating System</b> — sekaligus laboratorium observasi, perilaku, simulasi, replay, pengetahuan, governance, prediksi-empiris, dan audit, yang berjalan penuh di browser tanpa backend. Inti filosofinya: <b>memahami perilaku market melalui geometri</b>, lalu mencatat konsekuensi, lalu mengekstrak frekuensi empiris bersyarat. <i>Trade is Optional, Learning is Mandatory.</i></p>
+
+<h3><span class="ix">1.3</span> Prinsip Identitas Mengikat</h3>
+<div class="laws">
+ <div class="law"><div class="n">ID-01</div><div class="h">Geometry = Foundation</div><div class="d">Geometri market (Supertrend/line/cage/wave) adalah dasar keputusan; indikator hanya saksi sesuai matriks.</div></div>
+ <div class="law"><div class="n">ID-02</div><div class="h">Observation &gt; Execution</div><div class="d">Sistem bernilai walau tak satu trade pun dieksekusi; 1 candle = 3 knowledge events.</div></div>
+ <div class="law"><div class="n">ID-03</div><div class="h">Intelligence ≠ Signal</div><div class="d">Output inti = pemahaman (MIB), bukan BUY/SELL; No-Reduction Rule mutlak.</div></div>
+ <div class="law"><div class="n">ID-04</div><div class="h">Native &amp; Offline</div><div class="d">HTML/CSS/JS + Worker + IndexedDB + CompressionStream; tanpa server/DB-server/framework.</div></div>
+</div>
+</section>
+
+<!-- §2 MASTER LAW -->
+<section class="doc reveal" id="s2">
+<button class="copybtn" data-copy="s2">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 02 · MASTER IMPLEMENTATION LAW</div>
+<h2>Hukum <em>Tertinggi</em></h2>
+<p class="lede">Delapan belas hukum yang mengikat <b>seluruh</b> implementasi. Tiap hukum memuat nama, deskripsi, implementasi operasional, dan perilaku terlarang. Hukum ini tidak boleh dilunakkan oleh dokumen turunan.</p>
+
+<div class="laws">
+ <div class="law"><div class="n">LAW-MASTER-01</div><div class="h">Determinisme Mutlak</div><div class="d">Output identik bit-per-bit untuk input+config sama, kapan pun, di tab mana pun.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">waktu dari candle; PRNG Mulberry32 seeded ts+config_version; tie-break deterministik; BigInt integer-tick per-aset + canonical string.</span><span class="k">FORBID</span><span class="v fb">Date.now()/random bebas di logika; float biner di representasi kebenaran.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-02</div><div class="h">Kejujuran Data (No-Fake)</div><div class="d">Sistem lebih memilih NULL+status daripada nilai netral palsu.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">OI kosong=INSUFFICIENT_DATA; wave&lt;6=PENDING_WAVE; sample kurang=BELUM_CUKUP; panel kosong=N/A.</span><span class="k">FORBID</span><span class="v fb">skor 5000 netral; padding wave; mock dashboard; interpolasi OI 1m.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-03</div><div class="h">Immutability Card</div><div class="d">Setiap fakta = card beku + checksum + lineage.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">Object.freeze; update = card versi baru; audit-ID YYYYMMDD_HHMM_KOMP_FILE_SEQ_HEX (WIB).</span><span class="k">FORBID</span><span class="v fb">mutasi card in-place; UUID acak.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-04</div><div class="h">Aliran Unidirectional</div><div class="d">Data→Truth→Structure→Evidence→Clone→Sim→Knowledge→Consumer; tanpa loop mundur ke Core.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">Knowledge/Consumer hanya membaca card.</span><span class="k">FORBID</span><span class="v fb">Oracle/HiveMind menulis Truth/Clone; Consumer memodifikasi Core.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-05</div><div class="h">Card Sharing</div><div class="d">Truth/Structure/Evidence dihitung 1×/candle, di-share ke 3 clone.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">tahap SHARED di luar loop clone.</span><span class="k">FORBID</span><span class="v fb">clone menghitung geometri/indikator mentah.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-06</div><div class="h">1 Candle = 3 Knowledge</div><div class="d">LONG/SHORT/GRID masing-masing menulis observasi tiap closed candle.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">observasi wajib walau no-trade (beralasan).</span><span class="k">FORBID</span><span class="v fb">melewatkan observasi saat tak entry.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-07</div><div class="h">No-Reduction</div><div class="d">Dilarang mereduksi kecerdasan ke satu skor/sinyal.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">MIB = pemahaman multi-lensa.</span><span class="k">FORBID</span><span class="v fb">satu angka BUY/SELL sebagai output inti.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-08</div><div class="h">W%R Terbatas</div><div class="d">W%R/Vel/Acc = exit/early-wrong/CERMIN; akurat hanya pasca-close.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">masuk Exit Bus + CERMIN-EXIT; dead-zone bounded.</span><span class="k">FORBID</span><span class="v fb">W%R sebagai entry; W%R dalam vektor Oracle.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-09</div><div class="h">Fee Berlapis Jujur</div><div class="d">0.7% = REQUIRED_MOVE; fee murni 0.04–0.10%; WIN hanya bila net&gt;0; adverse-first.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">required = GRID_MIN_NET + fee_murni + slip_seeded + safety.</span><span class="k">FORBID</span><span class="v fb">0.04% sebagai fee total; TP menang atas SL se-candle.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-10</div><div class="h">HUKUM CAGE</div><div class="d">2 dinding valid ⇔ kompresi/sideway; 1 dinding ⇔ trend.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">jarak seberang NULL pada trend; escape v0→v1→v2; boundary max-2 vs internal banyak.</span><span class="k">FORBID</span><span class="v fb">kompresi dari line searah; GRID aktif di tren.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-11</div><div class="h">Clone = Runtime</div><div class="d">Clone adalah entitas hidup ber-ledger/ber-statistik/ber-config, bukan fungsi sinyal.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">3 sub-ledger terisolasi; statistik per-clone.</span><span class="k">FORBID</span><span class="v fb">mencampur statistik LONG/SHORT; SIDEWAY→LONG.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-12</div><div class="h">Sample-Gated</div><div class="d">Statistik/knowledge di bawah ambang sample tidak menyatakan keyakinan.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">CUKUP iff sample≥30 (ambang bounded).</span><span class="k">FORBID</span><span class="v fb">win_rate dari &lt; ambang sebagai kebenaran.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-13</div><div class="h">Prediction = Empiris</div><div class="d">Probabilitas = frekuensi bersyarat (Academy) + similarity (Oracle); bukan forecast.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">prediction_snapshot membungkus empiris + calibration_error.</span><span class="k">FORBID</span><span class="v fb">model prediktif; P(harga) tanpa basis empiris.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-14</div><div class="h">Human Approval + Bounded</div><div class="d">Darwin mengusulkan; WASIT menyaring; manusia memutus; nilai luar rentang = auto-reject.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">BOUNDED registry; 5-gate walk-forward paralel; config_version baru + rollback.</span><span class="k">FORBID</span><span class="v fb">Darwin auto-execute; mengubah batas min/max via proposal biasa.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-15</div><div class="h">Sterilnya Evidence</div><div class="d">Evidence = saksi independen; Truth buta terhadap indikator; indikator buta terhadap geometri sebagai keputusan.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">3 bus terpisah (Direction/Exit/Correction); jarak tidak masuk skor Evidence.</span><span class="k">FORBID</span><span class="v fb">Evidence menulis Truth; RSI/W%R/MACD di Direction/entry.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-16</div><div class="h">Snapshot Lengkap &amp; Immutable</div><div class="d">10 snapshot per closed candle; deterministik, replayable, auditable.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">field W beku + OD on-demand; dependencies=[candle_id,config_version].</span><span class="k">FORBID</span><span class="v fb">snapshot parsial tanpa status; turunan disimpan ganda.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-17</div><div class="h">Native-HTML Binding</div><div class="d">Platform = browser native; translasi setia, bukan redesign filosofi.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">IndexedDB append-only; Web Worker dingin (mati setelah selesai); writer serial main thread; CompressionStream.</span><span class="k">FORBID</span><span class="v fb">backend; worker menulis IndexedDB langsung; setInterval pemutar candle di idle.</span></div></div>
+
+ <div class="law"><div class="n">LAW-MASTER-18</div><div class="h">Audit Menyeluruh</div><div class="d">Setiap domain dapat diaudit: pipeline/snapshot/clone/trade/knowledge/governance.</div>
+  <div class="meta"><span class="k">IMPL</span><span class="v">checksum+lineage per card; Chronicle; 6 audit domain.</span><span class="k">FORBID</span><span class="v fb">logika tanpa jejak card; keputusan tanpa dependency.</span></div></div>
+</div>
+</section>
+
+<!-- §3 FREEZE MATRIX -->
+<section class="doc reveal" id="s3">
+<button class="copybtn" data-copy="s3">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 03 · CONSTITUTION FREEZE MATRIX</div>
+<h2>Matriks <em>Pembekuan</em></h2>
+<p class="lede">Seluruh konstitusi yang telah dibekukan, statusnya, dan rujukan dokumennya. Tidak satu pun boleh diubah kecuali melalui amandemen governance tingkat tertinggi (§11).</p>
+<div class="tblwrap"><table>
+<thead><tr><th>#</th><th>Constitution</th><th>Inti yang Dibekukan</th><th>Rujukan</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>01</td><td>System Identity</td><td>bukan bot/AI/scanner; geometry-OS native</td><td>§1, Doc02</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>02</td><td>Master Implementation Law</td><td>18 hukum tertinggi</td><td>§2</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>03</td><td>Trading Lifecycle</td><td>22 tahap SHARED/PER-CLONE/ON-DEMAND</td><td>§6, Doc05</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>04</td><td>Market Geometry</td><td>Supertrend/cage/wave/ladder/escape/phase/required</td><td>§4, Doc06</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>05</td><td>Market Intelligence</td><td>HiveMind understanding; Oracle similarity; Academy empiris</td><td>§8, Doc07</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>06</td><td>Indicator Authority</td><td>matriks peran per indikator</td><td>§5</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>07</td><td>Clone</td><td>LONG/SHORT/GRID runtime terisolasi</td><td>§7</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>08</td><td>Knowledge</td><td>Academy/River/Oracle/HiveMind/Darwin/Librarian unidirectional no-ML</td><td>§8, Doc07</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>09</td><td>Prediction</td><td>empiris+similarity; bukan forecast</td><td>§10</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>10</td><td>Governance</td><td>3-rem + bounded + 6 validasi + rollback</td><td>§11, Doc10</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>11</td><td>Snapshot</td><td>10 snapshot W/OD immutable</td><td>§9, Doc06</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>12</td><td>Consumer</td><td>API/Dashboard/Research/Paper/Live-adapter; live disabled default</td><td>Doc11</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>13</td><td>Simulation</td><td>first-class; adverse-first; 4 jenis</td><td>Doc08</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>14</td><td>Replay</td><td>6 replay reproduktibel</td><td>Doc09</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>15</td><td>Native HTML</td><td>IndexedDB/Worker/CompressionStream/BigInt-tick</td><td>Doc03/04</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>16</td><td>Build</td><td>15 build-stop-rule</td><td>§12, Doc13</td><td><span class="pill fz">FROZEN</span></td></tr>
+</tbody></table></div>
+<div class="call freeze"><div class="ch">aturan amandemen</div><p>Mengubah baris mana pun di atas = <b>amandemen konstitusi</b>: wajib proposal Darwin Kelas-B atau perubahan batas → WASIT → approval manusia ganda → <code>config_version</code>/<code>constitution_version</code> baru → tercatat Chronicle sebagai <code>CONSTITUTION_AMENDED</code>. Dokumen turunan <b>dilarang</b> melunakkan baris ini secara diam-diam.</p></div>
+</section>
+
+<!-- §4 GEOMETRY -->
+<section class="doc reveal" id="s4">
+<button class="copybtn" data-copy="s4">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 04 · MARKET GEOMETRY MASTER CONSTITUTION</div>
+<h2>Geometri <em>Market</em> — Authority Tertinggi</h2>
+<p class="lede">Geometri adalah <b>decision foundation</b>. Setiap entitas di bawah diproduksi <b>hanya</b> di Truth/Structure, dibaca oleh semua lapisan lain, dan tidak pernah dihitung ulang dari OHLCV oleh domain lain (satu sumber, banyak turunan).</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Entitas</th><th>Lapisan Asal</th><th>Authority Tertinggi</th><th>Aturan Beku</th></tr></thead>
+<tbody>
+<tr><td>Supertrend (st, stDir, color)</td><td>Truth</td><td>satu-satunya sumber garis aktif & dinding searah-trend</td><td>multiplier beku; tie-break warna saat close==st ikut trend</td></tr>
+<tr><td>Distance-to-ST (dist, distAtr)</td><td>Truth</td><td>satu-satunya jarak beku di Truth; proksi vol lokal (stdev distAtr)</td><td>NULL saat WARMUP, bukan 0</td></tr>
+<tr><td>Distance-Ceiling</td><td>Structure (OD)</td><td>= ceiling − close; ceiling = cage.upper ?? nearest.resistance</td><td>NULL pada downtrend satu-dinding</td></tr>
+<tr><td>Distance-Floor</td><td>Structure (OD)</td><td>= close − floor; floor = cage.lower ?? nearest.support</td><td>NULL pada uptrend satu-dinding</td></tr>
+<tr><td>Wave</td><td>Truth</td><td>= tepat 6 LINE sah; slope = transition (bukan anggota)</td><td>&lt;6 = PENDING_WAVE; tanpa padding; 13 struktur</td></tr>
+<tr><td>Cage</td><td>Structure</td><td>sangkar 2 dinding; sumber pp, rangeAtr, breakout</td><td>HUKUM CAGE; status NONE/VALID/LOOSE</td></tr>
+<tr><td>Support / Resistance</td><td>Structure</td><td>nearest per sisi via Validation Worker; boundary vs internal</td><td>escape v0→v1→v2; dinding FINAL saja</td></tr>
+<tr><td>Ladder</td><td>Structure</td><td>urutan line searah bertingkat (ciri tren)</td><td>internal-level spacing fee-safe</td></tr>
+<tr><td>Escape Path</td><td>Structure</td><td>mencari dinding “nyaman” (jarak ≥ ambang·ATR)</td><td>dinding nempel ditolak sebagai fondasi</td></tr>
+<tr><td>Market Phase</td><td>Structure</td><td>= cage.status + wave.structure + stDir</td><td>phase menentukan strategi aktif</td></tr>
+<tr><td>Required Move</td><td>Trade/fee</td><td>batas bawah target (dibandingkan, bukan ditetapkan oleh jarak)</td><td>= GRID_MIN_NET + fee_murni + slip + safety</td></tr>
+</tbody></table></div>
+<div class="call ok"><div class="ch">hukum turunan geometri</div><p>Jarak <b>menentukan</b> compression/expansion/breakout/sideway/pullback (pernyataan ruang antar-dinding); jarak <b>hanya konteks</b> untuk trend/strength/continuation/reversal/maturity (pernyataan arah/warna milik stDir & wave). Mencampur keduanya = salah-implementasi yang paling umum.</p></div>
+</section>
+
+<!-- §5 INDICATOR MATRIX -->
+<section class="doc reveal" id="s5">
+<button class="copybtn" data-copy="s5">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 05 · INDICATOR AUTHORITY MASTER MATRIX</div>
+<h2>Matriks <em>Authority</em> Indikator</h2>
+<p class="lede">Legenda: <span class="pill fz">T</span>=trigger/authority · <span class="pill pb">V</span>=validation-only · <span class="pill rs">S</span>=strengthening/context · <span class="pill vi">W</span>=behavior/stat witness · <span class="pill fz">K</span>=knowledge material · <span class="pill pb">B</span>=benchmark material · <b>P+</b>=empirical-probability contributor · <b>P−</b>=no prediction · <span class="pill no">X</span>=forbidden · —=unused. Kolom <b>Prediction</b> selalu bermakna empiris (dimensi bucket/vektor/similarity), bukan model.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Indikator / Primitive</th><th>Entry</th><th>Exit</th><th>Validation</th><th>Statistics</th><th>Knowledge</th><th>Prediction</th><th>Governance</th></tr></thead>
+<tbody>
+<tr><td>Supertrend</td><td class="y">T</td><td class="y">T</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P−</td><td>amend</td></tr>
+<tr><td>Distance-to-ST</td><td class="s">S</td><td>—</td><td class="y">V</td><td class="y">W,K</td><td class="y">K</td><td>P+</td><td>—</td></tr>
+<tr><td>Distance-Ceiling</td><td class="y">T</td><td class="y">T</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>Distance-Floor</td><td class="y">T</td><td class="y">T</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>Price-Position</td><td class="y">T</td><td class="y">T</td><td class="s">S</td><td class="y">W</td><td class="y">K</td><td>P+</td><td class="y">B</td></tr>
+<tr><td>Required-Move</td><td class="y">T</td><td class="y">T</td><td class="y">V</td><td class="y">W</td><td>—</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>Wave</td><td class="s">S</td><td>—</td><td>—</td><td class="y">W,K</td><td class="y">K</td><td>P+</td><td>—</td></tr>
+<tr><td>Cage</td><td class="y">T</td><td class="y">T</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P+</td><td class="y">B</td></tr>
+<tr><td>Ladder</td><td class="s">S</td><td class="s">S</td><td class="s">S</td><td class="y">W</td><td class="y">K</td><td>P−</td><td>—</td></tr>
+<tr><td>Escape-Path</td><td class="y">T</td><td class="y">T</td><td class="y">V</td><td class="s">S</td><td>—</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>ATR</td><td class="y">T</td><td class="y">T</td><td>—</td><td class="y">W,K</td><td class="y">K</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>EMA</td><td class="y">T</td><td>—</td><td class="y">V</td><td class="s">S</td><td class="y">K</td><td>P+</td><td>—</td></tr>
+<tr><td>MACD</td><td class="n">X</td><td class="y">T</td><td class="n">X</td><td class="y">W</td><td class="y">K</td><td>P−</td><td>—</td></tr>
+<tr><td>Open Interest</td><td class="s">S</td><td>—</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P+</td><td>—</td></tr>
+<tr><td>OI-Delta</td><td class="s">S</td><td>—</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P+</td><td>—</td></tr>
+<tr><td>Volume</td><td>—</td><td>—</td><td>—</td><td class="y">W</td><td>—</td><td>P−</td><td>—</td></tr>
+<tr><td>Volume-Delta</td><td class="y">T</td><td>—</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P+</td><td>—</td></tr>
+<tr><td>W%R</td><td class="n">X</td><td class="y">T</td><td>—</td><td class="y">W</td><td class="y">K</td><td>P−</td><td>—</td></tr>
+<tr><td>W%R-Velocity</td><td class="n">X</td><td class="y">T</td><td>—</td><td class="y">W</td><td class="y">K</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>W%R-Acceleration</td><td class="n">X</td><td class="y">T</td><td>—</td><td class="y">W</td><td class="y">K</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>Adaptive-Entry-Corridor</td><td class="y">T</td><td class="y">T</td><td class="y">V</td><td class="y">W</td><td>—</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>Adaptive-TP</td><td>—</td><td class="y">T</td><td>—</td><td class="y">W</td><td class="y">K</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>Wrong-Entry-Guard</td><td>—</td><td class="y">T</td><td>—</td><td class="y">W</td><td class="y">K</td><td>P−</td><td class="y">B</td></tr>
+<tr><td>Trade-Marker</td><td>—</td><td>—</td><td>—</td><td class="y">sumber</td><td class="y">sumber</td><td>P−</td><td>konteks</td></tr>
+<tr><td>Structure-Score</td><td class="s">S</td><td>—</td><td class="s">S</td><td class="y">W,K</td><td class="y">K</td><td>P−</td><td>—</td></tr>
+<tr><td>Evidence-Score</td><td class="y">T</td><td>—</td><td class="y">V</td><td class="s">S</td><td class="y">K</td><td>P−</td><td>—</td></tr>
+<tr><td>Confidence-Score</td><td class="s">S</td><td>—</td><td class="y">V</td><td class="y">W</td><td class="y">K</td><td>P−</td><td>—</td></tr>
+<tr><td>Market-Phase</td><td class="s">S</td><td class="s">S</td><td class="s">S</td><td class="y">W,K</td><td class="y">K</td><td>P+</td><td>—</td></tr>
+<tr><td>Clone-Observation-Card</td><td>—</td><td>—</td><td>—</td><td class="y">sumber</td><td class="y">sumber</td><td>P−</td><td>konteks</td></tr>
+</tbody></table></div>
+<div class="call freeze"><div class="ch">hukum pembacaan matriks</div><p>Baris ber-<span class="pill no">X</span> di kolom Entry (MACD, W%R, W%R-Vel, W%R-Acc) <b>dilarang keras</b> memicu/menguatkan entry — pelanggaran = bug konstitusional (LAW-MASTER-08/15). Kolom Governance hanya berisi komponen ber-parameter <code>BOUNDED</code> (target WASIT) atau <code>amend</code> (konstitusional, mis. Supertrend).</p></div>
+</section>
+
+<!-- §6 LIFECYCLE -->
+<section class="doc reveal" id="s6">
+<button class="copybtn" data-copy="s6">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 06 · MASTER TRADING LIFECYCLE</div>
+<h2>Lifecycle <em>Trading</em> Master</h2>
+<p class="lede">Rantai penuh per closed candle. Blok <b>SHARED</b> (BOOT→Evidence) dijalankan 1× & di-share; blok <b>PER-CLONE</b> (Observation→Marker) 3× terisolasi; blok <b>SHARED-AGAIN</b> (Statistics→Governance) 1× card-agnostic; <b>ON-DEMAND</b> (Benchmark) tidak per-candle. Tabel berikut merangkum per tahap; perbedaan LONG/SHORT/GRID ada di §7.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Tahap</th><th>Jenis</th><th>Data Masuk</th><th>Data Keluar</th><th>Tujuan</th><th>Syarat Masuk→Keluar</th></tr></thead>
+<tbody>
+<tr><td>BOOT</td><td>once</td><td>config/registry</td><td>SYSTEM_BOOT</td><td>dirikan hukum fisika</td><td>registry lengkap→siap; gagal→hard fail</td></tr>
+<tr><td>Observation (Market)</td><td>SHARED</td><td>candle mentah</td><td>market_snapshot</td><td>karantina/kanonisasi</td><td>CLOSED+lulus hygiene→Truth</td></tr>
+<tr><td>Truth</td><td>SHARED</td><td>market+ckpt</td><td>truth_snapshot</td><td>geometri murni</td><td>Point VALID/WARMUP</td></tr>
+<tr><td>Structure</td><td>SHARED</td><td>truth+lines</td><td>structure_snapshot</td><td>cage/ladder/nearest/phase</td><td>line FINAL; NULL jujur</td></tr>
+<tr><td>Evidence</td><td>SHARED</td><td>truth+candle+OI+wave</td><td>evidence_snapshot</td><td>3 bus saksi</td><td>skor clamp; status jujur</td></tr>
+<tr><td>Clone Observation</td><td>PER-CLONE</td><td>snapshot+ledger</td><td>clone_observation+snapshot</td><td>catat hipotesis (juga no-trade)</td><td>wajib tiap candle</td></tr>
+<tr><td>Validation (Entry)</td><td>PER-CLONE</td><td>observasi+global</td><td>ENTRY_MARKER / no-trade</td><td>konjungsi gerbang</td><td>lulus→buka; gagal→no-trade beralasan</td></tr>
+<tr><td>Position</td><td>PER-CLONE</td><td>posisi+candle+exit_bus</td><td>mae/mfe/trail update</td><td>kelola posisi hidup</td><td>terbuka→lanjut/exit</td></tr>
+<tr><td>Profit Management</td><td>PER-CLONE</td><td>unreal+ATR+exit_bus</td><td>partial/lock/trail</td><td>amankan profit adaptif</td><td>hold-veto tahan 6–7</td></tr>
+<tr><td>Exit</td><td>PER-CLONE</td><td>guard+cage+prioritas</td><td>alasan exit / null</td><td>putuskan tutup & mengapa</td><td>1–5 &gt; 6–7</td></tr>
+<tr><td>Close + Marker</td><td>PER-CLONE</td><td>alasan+harga</td><td>EXIT_MARKER+trade_snapshot</td><td>hasil after-fee adverse-first</td><td>net&gt;0=WIN</td></tr>
+<tr><td>Statistics</td><td>SHARED-AGAIN</td><td>marker+snapshot</td><td>statistics_snapshot</td><td>agregasi sample-gated</td><td>CUKUP iff ≥30</td></tr>
+<tr><td>Knowledge</td><td>SHARED-AGAIN</td><td>card-agnostic</td><td>knowledge_snapshot</td><td>Academy→…→Chronicle</td><td>unidirectional</td></tr>
+<tr><td>Prediction</td><td>SHARED-AGAIN</td><td>understanding+academy+oracle</td><td>prediction_snapshot</td><td>empiris+similarity</td><td>tanpa model</td></tr>
+<tr><td>Governance</td><td>SHARED-AGAIN</td><td>proposal+verdict+human</td><td>keputusan+config_version</td><td>rem & kemudi</td><td>loop hanya ke BOUNDED</td></tr>
+<tr><td>Consumer</td><td>opsional</td><td>understanding+rapor</td><td>intent/report</td><td>tangan opsional</td><td>live disabled default</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §7 CLONE -->
+<section class="doc reveal" id="s7">
+<button class="copybtn" data-copy="s7">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 07 · CLONE MASTER CONSTITUTION</div>
+<h2>Clone <em>Master</em></h2>
+<p class="lede">Clone = <b>runtime</b>, bukan strategi: bias tetap + sub-ledger + statistik + config + siklus belajar, terisolasi. Ketiganya membaca peta bersama (Card Sharing) & menulis observasi tiap candle (1 candle = 3 knowledge).</p>
+
+<h3><span class="ix">7.1</span> LONG Clone</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Aspek</th><th>Ketentuan Master</th></tr></thead>
+<tbody>
+<tr><td>Lifecycle</td><td>per candle: observasi→(entry bila konjungsi)→position→profit→exit→marker; ledger sendiri</td></tr>
+<tr><td>Authority entry</td><td>stDir=+1 ∧ dir_ok(EMA-slope&gt;0 ∧ vd&gt;0) ∧ corridor.inZone ∧ fee_safe(dist_ceiling≥required) ∧ global_ok ∧ open==null</td></tr>
+<tr><td>Authority exit</td><td>SL=floor; TP=min(ceiling,cage.upper,entry+TP_ATR·ATR); trailing ATR; wrong-entry(floor breach/adv/vel); hold-veto</td></tr>
+<tr><td>Contribution</td><td>observasi + marker LONG + statistik LONG + bahan CERMIN/Academy LONG</td></tr>
+<tr><td>Limitation</td><td>tak menghitung geometri; tak memakai RSI/W%R/MACD untuk entry; satu posisi (no pyramiding)</td></tr>
+<tr><td>Forbidden</td><td>membaca Oracle/HiveMind langsung; menulis Truth; entry saat fee-unsafe</td></tr>
+</tbody></table></div>
+
+<h3><span class="ix">7.2</span> SHORT Clone (cermin)</h3>
+<p>Seluruh ketentuan LONG dicerminkan: <code>stDir=−1</code>, <code>dir_ok = EMA-slope&lt;0 ∧ vd&lt;0</code>, <code>SL=ceiling</code>, <code>fee_safe = dist_floor≥required</code>, TP ke bawah, wrong-entry = breach ceiling / vel&gt;0 keras. Authority/limitation/forbidden identik secara cermin.</p>
+
+<h3><span class="ix">7.3</span> GRID Clone</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Aspek</th><th>Ketentuan Master</th></tr></thead>
+<tbody>
+<tr><td>Lifecycle</td><td>per candle: grid_eval(cage,price,fills,required)→(to_close,to_open); ledger grid_fills sendiri</td></tr>
+<tr><td>Authority entry</td><td>cage_valid ∧ fee_safe(width≥3·required) ∧ breakout_none ∧ pp∈{BUY,SELL}_ZONE ∧ fills_per_side&lt;max; arah fill dari zona pp</td></tr>
+<tr><td>Authority exit</td><td>GRID_TP(prof≥required); RANGE_BREAK(breakout berlawanan); WRONG_ENTRY(adv≥WRONG_PCT); stop-semua bila ¬cage_valid</td></tr>
+<tr><td>Contribution</td><td>observasi grid_state + marker GRID + statistik GRID (coverage, net/fill, imbalance)</td></tr>
+<tr><td>Limitation</td><td>buta arah: tak pakai stDir/Direction/MTF/RSI/W%R/MACD untuk keputusan; scaling = multiple fill (bukan pyramiding directional)</td></tr>
+<tr><td>Forbidden</td><td>aktif di tren (cage NONE); memakai MTF sebagai veto; trailing ATR per fill</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §8 KNOWLEDGE -->
+<section class="doc reveal" id="s8">
+<button class="copybtn" data-copy="s8">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 08 · KNOWLEDGE MASTER CONSTITUTION</div>
+<h2>Knowledge <em>Master</em></h2>
+<p class="lede">Enam entitas, unidirectional, card-agnostic, <b>no-ML</b>. Hubungan via join pada <code>ts/candle_id + entity_type</code>. Knowledge <b>tidak</b> mengalir balik ke Core/Clone (LAW-MASTER-04).</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Entitas</th><th>Authority</th><th>Lifecycle</th><th>Contribution</th><th>Governance</th><th>Limitation</th></tr></thead>
+<tbody>
+<tr><td>Academy</td><td>win_rate empiris bersyarat per (clone,structure,distance_bucket,reason)</td><td>tiap EXIT marker→inkremen; sample-gated</td><td>academy_artifacts + bahan CERMIN</td><td>Librarian set status</td><td>no-ML; tak meramal</td></tr>
+<tr><td>River</td><td>archivist append-only + index</td><td>terus mencatat</td><td>store + Chronicle</td><td>audit write</td><td>tak berpikir; no-ML</td></tr>
+<tr><td>Oracle</td><td>similarity euclidean deterministik + tie-break terbaru; match&gt;7500</td><td>per knowledge cycle</td><td>oracle_match</td><td>vektor beku=versioned</td><td>W%R/MACD tak masuk vektor</td></tr>
+<tr><td>HiveMind</td><td>memahami (score+bias); currentEvidence wajib dari snapshot</td><td>per cycle</td><td>market_understanding</td><td>—</td><td>bukan sinyal; tak mengalir balik</td></tr>
+<tr><td>Darwin</td><td>usul mutasi Kelas-A(bounded)/Kelas-B(PEX); validator tolak campur-peran</td><td>usul→PENDING/auto-reject</td><td>darwin_proposals</td><td>WASIT+human; bounded auto-reject</td><td>tak auto-execute</td></tr>
+<tr><td>Librarian</td><td>lifecycle NEW→OBS→TRUSTED→MATURE/DEAD/DEPRECATED</td><td>per evaluasi</td><td>lifecycle events</td><td>DEAD/DEPRECATED non-aktif</td><td>sample+stability gated</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §9 SNAPSHOT -->
+<section class="doc reveal" id="s9">
+<button class="copybtn" data-copy="s9">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 09 · MARKET SNAPSHOT MASTER CONSTITUTION</div>
+<h2>Snapshot <em>Master</em></h2>
+<h3><span class="ix">9.1</span> Immutable Snapshot Philosophy</h3>
+<p>Snapshot adalah <b>pembungkusan terpartisi</b> dari output pipeline pada satu closed candle — bukan komputasi baru. Ia beku (LAW-MASTER-03/16): sekali ditulis, tak berubah; koreksi = snapshot versi baru ber-lineage. Field <b>W</b> disimpan beku; field <b>OD</b> boleh on-demand (deterministik dari sumber beku) — ini mencegah drift & menghemat storage. Field tak terhitung = <code>NULL</code>+status, <b>bukan</b> nilai netral (LAW-MASTER-02).</p>
+<h3><span class="ix">9.2</span> Snapshot Lifecycle</h3>
+<ul>
+ <li class="ok"><b>Produce</b> pada tahap pipeline yang sah (satu sumber per besaran).</li>
+ <li class="ok"><b>Freeze</b> = Object.freeze + checksum + <code>dependencies=[candle_id,config_version]</code>.</li>
+ <li class="ok"><b>Store</b> append-only (IndexedDB <code>cold</code>/<code>warm</code>); index by type+ts & config+ts.</li>
+ <li class="ok"><b>Consume</b> read-only oleh lapisan hilir & Consumer/Visualization.</li>
+ <li class="ok"><b>Replay</b> = baca urutan snapshot; <b>Re-validate</b> = checksum+lineage saat load.</li>
+</ul>
+<h3><span class="ix">9.3</span> Replay Philosophy</h3>
+<p>Replay membaca card, bukan menghitung ulang sembarangan. Karena sumber (<code>st,ATR,close</code>, marker, config) deterministik, seluruh 10 snapshot & 6 jenis replay reproduktibel bit-per-bit. Resume via <code>checkpoints</code>; bila absen, recompute hanya hot-window 3h.</p>
+<h3><span class="ix">9.4</span> Freeze Rule</h3>
+<div class="call freeze"><div class="ch">freeze rule</div><p>Snapshot FINAL hanya dari candle CLOSED; PROVISIONAL tak melahirkan snapshot final. Benchmark Snapshot <b>absen</b> pada closed candle biasa (on-demand saja). Prediction Snapshot <b>dilarang</b> memuat output model prediktif. Menambah/menghapus field snapshot = amandemen §3 (constitution_version baru).</p></div>
+</section>
+
+<!-- §10 PREDICTION -->
+<section class="doc reveal" id="s10">
+<button class="copybtn" data-copy="s10">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 10 · PREDICTION MASTER CONSTITUTION</div>
+<h2>Prediction <em>Master</em></h2>
+<h3><span class="ix">10.1</span> WAJIB</h3>
+<ul>
+ <li class="ok"><b>Empirical</b> — probabilitas = frekuensi bersyarat dari Academy (win_rate_net per bucket).</li>
+ <li class="ok"><b>Probability-based</b> — Consumer boleh membaca <code>win_rate_net/10000</code> sebagai probabilitas empiris; sistem menyertakan <code>calibration_error</code> (CERMIN) agar kejujuran confidence terukur.</li>
+ <li class="ok"><b>Historical-similarity-based</b> — Oracle similarity_score sebagai “probabilitas kemiripan”.</li>
+</ul>
+<h3><span class="ix">10.2</span> DILARANG</h3>
+<ul>
+ <li class="no"><b>Forecasting</b> harga/arah dari model.</li>
+ <li class="no"><b>Hidden AI prediction</b> — tak ada black-box; setiap angka punya lineage card.</li>
+ <li class="no"><b>Unsupported prediction</b> — di bawah ambang sample = <code>BELUM_CUKUP</code>/NULL, bukan angka.</li>
+</ul>
+<h3><span class="ix">10.3</span> Pemetaan “Probabilitas” ke Sumber</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Jenis</th><th>Sumber Empiris</th></tr></thead>
+<tbody>
+<tr><td>continuation / reversal / breakout / sideway</td><td>win_rate per bucket (clone, structure, distance)</td></tr>
+<tr><td>LONG / SHORT / GRID profitability</td><td>win_rate_net & laju expectancy&gt;0 per clone per bucket</td></tr>
+<tr><td>market similarity</td><td>oracle_match.similarity_score/10000</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §11 GOVERNANCE -->
+<section class="doc reveal" id="s11">
+<button class="copybtn" data-copy="s11">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 11 · GOVERNANCE MASTER CONSTITUTION</div>
+<h2>Governance <em>Master</em></h2>
+<h3><span class="ix">11.1</span> Authority Matrix</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Aktor</th><th>Boleh</th><th>Dilarang</th></tr></thead>
+<tbody>
+<tr><td>Darwin</td><td>usul Kelas-A/B; baca artifact+bounded</td><td>auto-execute; ubah batas min/max; sentuh constitutional atom</td></tr>
+<tr><td>WASIT</td><td>walk-forward paralel; 5-gate; auto-reject FAIL</td><td>approve (hanya menyaring)</td></tr>
+<tr><td>Human</td><td>approve/reject proposal lulus WASIT</td><td>— (rem terakhir)</td></tr>
+<tr><td>Bounded Registry</td><td>auto-reject nilai luar rentang</td><td>menerima nilai gila</td></tr>
+<tr><td>Runtime</td><td>terapkan config_version baru pada boundary; rollback deterministik</td><td>hot-swap acak; loop balik ke Core-logic</td></tr>
+</tbody></table></div>
+<h3><span class="ix">11.2</span> Governance Lifecycle</h3>
+<p>Constitution Validation → Proposal Validation → Authority Matrix Validation → Build Validation → Runtime Validation → Governance Audit (enam validasi wajib; gagal konstitusi/authority/build = <span class="pill no">BUILD STOP</span>).</p>
+<h3><span class="ix">11.3</span> Proposal Lifecycle</h3>
+<ol>
+ <li class="ok">Darwin tulis proposal (<code>PENDING</code> / auto <code>REJECTED_OUT_OF_RANGE</code> / <code>VIOLATION</code>).</li>
+ <li class="ok">WASIT walk-forward → <code>REJECTED_BY_WASIT</code> bila FAIL.</li>
+ <li class="ok"><code>PENDING_HUMAN_APPROVAL</code> → human approve/reject.</li>
+ <li class="ok">Approve → <code>config_version</code> baru + audit; rollback = tunjuk version lama.</li>
+</ol>
+<h3><span class="ix">11.4</span> Validation Lifecycle</h3>
+<p>Setiap perubahan melewati: bounded-check → WASIT 5-gate → human → apply pada boundary → monitor pasca-deploy (rapor baru) → bila memburuk, rollback. Amandemen konstitusi (§3) butuh approval <b>ganda</b> + tercatat <code>CONSTITUTION_AMENDED</code>.</p>
+</section>
+
+<!-- §12 BUILD STOP -->
+<section class="doc reveal" id="s12">
+<button class="copybtn" data-copy="s12">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 12 · BUILD STOP MASTER CONSTITUTION</div>
+<h2>Build Stop <em>Master</em></h2>
+<p class="lede">Build <b>wajib dihentikan</b> (tidak boleh lanjut ke PHASE implementasi) bila salah satu kondisi berikut terdeteksi. Ini penegakan LAW-MASTER & Doc13; daftar ini beku & lengkap.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>#</th><th>Kondisi Stop</th><th>Deteksi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Specification conflict</td><td>kontradiksi antar-doc yang tak ter-resolve</td></tr>
+<tr><td>2</td><td>Hidden assumption</td><td>nilai tanpa sumber / tanpa NULL+status</td></tr>
+<tr><td>3</td><td>Missing feature</td><td>fitur konstitusi tak terimplementasi</td></tr>
+<tr><td>4</td><td>Missing domain</td><td>domain required absen dari inventory</td></tr>
+<tr><td>5</td><td>Missing pipeline</td><td>tahap lifecycle absen / salah jenis (SHARED/PER-CLONE)</td></tr>
+<tr><td>6</td><td>Missing authority matrix</td><td>indikator dipakai di luar kolom sah</td></tr>
+<tr><td>7</td><td>Missing market logic</td><td>corridor/TP/wrong/grid/cage tak ter-spesifikasi</td></tr>
+<tr><td>8</td><td>Governance conflict</td><td>loop balik ke Core / auto-execute / bounded dilanggar</td></tr>
+<tr><td>9</td><td>Constitution conflict</td><td>pelanggaran LAW-MASTER-01..18</td></tr>
+<tr><td>10</td><td>Undefined behavior</td><td>adverse-first/tie-break/escape/no-trade/HOLD-veto tak terdefinisi</td></tr>
+<tr><td>11</td><td>Undefined snapshot</td><td>snapshot/field W-OD tak terdefinisi</td></tr>
+<tr><td>12</td><td>Undefined clone lifecycle</td><td>lifecycle/3-obs/sub-ledger tak terdefinisi</td></tr>
+<tr><td>13</td><td>Undefined knowledge lifecycle</td><td>Librarian/unidirectional tak terdefinisi</td></tr>
+<tr><td>14</td><td>Undefined simulation lifecycle</td><td>4 jenis sim / 5 hukum eksekusi tak terdefinisi</td></tr>
+<tr><td>15</td><td>Undefined implementation contract</td><td>native-binding/writer-serial tak terdefinisi</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §13 CHECKLIST -->
+<section class="doc reveal" id="s13">
+<button class="copybtn" data-copy="s13">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 13 · IMPLEMENTATION MASTER CHECKLIST</div>
+<h2>Checklist <em>Master</em></h2>
+<h3><span class="ix">13.1</span> Specification Checklist</h3>
+<ul>
+ <li class="ok">16 konstitusi terdokumentasi & beku (§3).</li>
+ <li class="ok">18 hukum tertinggi punya nama/deskripsi/implementasi/forbidden (§2).</li>
+ <li class="ok">Matriks authority indikator lengkap 7 kolom (§5).</li>
+ <li class="ok">10 snapshot terdefinisi W/OD (§9).</li>
+ <li class="ok">Build-stop 15 kondisi terdefinisi (§12).</li>
+</ul>
+<h3><span class="ix">13.2</span> Implementation Checklist</h3>
+<ul>
+ <li class="ok">Bedrock: int-tick+canonical, id, wib, hash, prng, lifecycle, card, validator, bus, bounded, governor, store(writer serial).</li>
+ <li class="ok">MARKET→TRUTH→STRUCTURE→EVIDENCE (SHARED, 1×).</li>
+ <li class="ok">CLONE 3 ledger + orchestrator + grid_eval (PER-CLONE).</li>
+ <li class="ok">SIM adverse-first + 6 replay + checkpoint.</li>
+ <li class="ok">KNOWLEDGE unidirectional no-ML + WASIT paralel.</li>
+ <li class="ok">GOVERNANCE 6 validasi + rollback.</li>
+ <li class="ok">CONSUMER live-adapter disabled default + no-mock UI.</li>
+</ul>
+<h3><span class="ix">13.3</span> Validation Checklist</h3>
+<ul>
+ <li class="ok">Determinisme: 2 run seed sama → checksum identik; AKE eksak.</li>
+ <li class="ok">Wave no-padding; HUKUM CAGE; W%R≠entry.</li>
+ <li class="ok">3 obs/candle; GRID marker; adverse-first; HOLD-veto.</li>
+ <li class="ok">WASIT identik→G2 FAIL; bounded auto-reject.</li>
+ <li class="ok">Offline native; no-mock; sample-gated.</li>
+</ul>
+<h3><span class="ix">13.4</span> Governance Checklist</h3>
+<ul>
+ <li class="ok">Bounded registry lengkap + auto-reject.</li>
+ <li class="ok">Proposal lifecycle 4 langkah + 3 rem.</li>
+ <li class="ok">Rollback deterministik teruji.</li>
+ <li class="ok">Deprecated registry ditegakkan (22 aturan tak hidup).</li>
+ <li class="ok">Amandemen konstitusi = approval ganda + Chronicle.</li>
+</ul>
+</section>
+
+<!-- §14 READINESS -->
+<section class="doc reveal" id="s14">
+<button class="copybtn" data-copy="s14">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 14 · IMPLEMENTATION READINESS</div>
+<h2>Readiness <em>Self-Audit</em></h2>
+<p class="lede">Audit diri terhadap empat dimensi kelengkapan. Hasil ini menjadi gerbang sebelum PHASE implementasi Native-HTML; setiap dimensi harus <span class="pill fz">COMPLETE</span>.</p>
+<div class="verdict">
+ <div class="v pass"><div class="big">4</div><div class="l">dimensi complete</div></div>
+ <div class="v tens"><div class="big">0</div><div class="l">gap terbuka</div></div>
+ <div class="v stop"><div class="big">0</div><div class="l">build stop</div></div>
+</div>
+<div class="tblwrap"><table>
+<thead><tr><th>Dimensi</th><th>Pemeriksaan</th><th>Hasil</th></tr></thead>
+<tbody>
+<tr><td>Specification completeness</td><td>16 konstitusi + 18 hukum + matriks + snapshot + stop-rule hadir & konsisten</td><td class="y">COMPLETE</td></tr>
+<tr><td>Architecture completeness</td><td>22 domain + 82 komponen + pipeline 22-tahap + native-binding terpetakan</td><td class="y">COMPLETE</td></tr>
+<tr><td>Governance completeness</td><td>authority matrix + 6 validasi + proposal lifecycle + rollback + bounded</td><td class="y">COMPLETE</td></tr>
+<tr><td>Implementation completeness</td><td>checklist §13 penuh; build graph (DOCUMENT_DEPENDENCY) siap; 0 stop-rule</td><td class="y">COMPLETE</td></tr>
+</tbody></table></div>
+<div class="call ok"><div class="ch">keputusan readiness</div>
+<p><b>MASTER_SPECIFICATION dinyatakan COMPLETE & FROZEN.</b> Dokumen ini kini menjadi sumber kebenaran tertinggi; seluruh Doc 01–14 tunduk padanya pada konflik. Implementasi Native-HTML <b>wajib</b> mematuhi §2 (hukum), §5 (matriks), §9 (snapshot), §12 (stop-rule) sebagai kriteria penerimaan tiap langkah, dan <b>wajib</b> membaca DOCUMENT_DEPENDENCY.html sebagai build graph resmi sebelum menulis satu baris kode pun.</p></div>
+</section>
+
+</main>
+</div>
+
+<footer>
+ <div>ST-LMS · <b>MASTER_SPECIFICATION</b> · highest authority · 14 section · <b>CONSTITUTIONALLY FROZEN</b></div>
+ <div>artefak = <b>konstitusi</b> · runtime = <b>belum dibangun</b> · pada konflik → <b>dokumen ini menang</b></div>
+</footer>
+
+<script>
+(function(){const cv=document.getElementById('ambient'),x=cv.getContext('2d');let w,h,pts,raf;const N=54;
+ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function size(){w=cv.width=innerWidth;h=cv.height=innerHeight;}
+ function init(){size();pts=Array.from({length:N},()=>({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.13,vy:(Math.random()-.5)*.13}));}
+ function frame(){x.clearRect(0,0,w,h);
+  for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1;}
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const a=pts[i],b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+   if(d<150){x.strokeStyle=`rgba(255,93,115,${.04*(1-d/150)})`;x.lineWidth=1;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();}}
+  for(const p of pts){x.fillStyle='rgba(244,180,0,.18)';x.beginPath();x.arc(p.x,p.y,1.05,0,7);x.fill();}
+  raf=requestAnimationFrame(frame);}
+ init();if(!reduce)frame();addEventListener('resize',()=>{cancelAnimationFrame(raf);init();if(!reduce)frame();});})();
+(function(){const el=document.getElementById('wib');const p=n=>String(n).padStart(2,'0');
+ function t(){const d=new Date(Date.now()+7*3600000);el.textContent=`${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} WIB`;}t();setInterval(t,1000);})();
+const rev=new IntersectionObserver(es=>es.forEach((en,i)=>{if(en.isIntersecting){en.target.style.transitionDelay=(Math.min(i,6)*45)+'ms';en.target.classList.add('in');rev.unobserve(en.target);}}),{threshold:.06});
+document.querySelectorAll('.reveal').forEach(e=>rev.observe(e));
+const docs=[...document.querySelectorAll('.doc, .apex')];const links=[...document.querySelectorAll('nav.toc a')];
+const tocObs=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){const id=en.target.id;links.forEach(a=>a.classList.toggle('on',a.dataset.d===id));}}),{rootMargin:'-42% 0px -52% 0px'});
+docs.forEach(d=>tocObs.observe(d));
+const prog=document.getElementById('readprog');
+addEventListener('scroll',()=>{const h=document.documentElement;prog.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100).toFixed(1)+'%';},{passive:true});
+const q=document.getElementById('q');
+q.addEventListener('input',()=>{const t=q.value.trim().toLowerCase();docs.forEach(d=>{d.style.opacity=(!t||d.textContent.toLowerCase().includes(t))?'1':'.26';});});
+q.addEventListener('keydown',e=>{if(e.key==='Enter'){const t=q.value.trim().toLowerCase();docs.forEach(d=>d.style.opacity='1');const f=docs.find(d=>d.textContent.toLowerCase().includes(t));if(f)f.scrollIntoView({behavior:'smooth'});}});
+document.querySelectorAll('.copybtn').forEach(b=>b.addEventListener('click',()=>{const sec=document.getElementById(b.dataset.copy);navigator.clipboard?.writeText(sec.innerText).then(()=>{b.textContent='copied';b.classList.add('done');setTimeout(()=>{b.textContent='copy §';b.classList.remove('done');},1400);}).catch(()=>{b.textContent='err';});}));
+</script>
+</body>
+</html>

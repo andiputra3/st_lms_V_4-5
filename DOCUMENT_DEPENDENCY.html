@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ST-LMS · DOCUMENT DEPENDENCY · Build & Implementation Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --ink:#06080b;--ink2:#0a0e13;--ink3:#10151c;--line:#1a232c;--line2:#28333d;
+ --bone:#ece6d8;--mute:#7a8591;--mute2:#4b545d;
+ --amber:#f4b400;--teal:#19c3a6;--rose:#ff5d73;--sky:#5aa9ff;--violet:#b388ff;--lime:#9be36b;
+ --gk:rgba(25,195,166,.12);--gs:rgba(244,180,0,.12);--gp:rgba(90,169,255,.13);--gx:rgba(255,93,115,.12);--gv:rgba(179,136,255,.12);
+ --grid:rgba(90,169,255,.03)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Sora',system-ui,sans-serif;background:var(--ink);color:var(--bone);min-height:100vh;overflow-x:hidden;line-height:1.62;font-weight:300}
+#ambient{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+ background:radial-gradient(1100px 600px at 12% -12%,rgba(90,169,255,.06),transparent 60%),
+   radial-gradient(900px 700px at 95% 110%,rgba(25,195,166,.05),transparent 55%),
+   linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+ background-size:auto,auto,52px 52px,52px 52px}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+ background:repeating-linear-gradient(0deg,rgba(255,255,255,.011) 0 1px,transparent 1px 3px);animation:scan 26s linear infinite}
+@keyframes scan{from{background-position:0 0}to{background-position:0 130px}}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.disp{font-family:'Bricolage Grotesque',sans-serif}
+.sealbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+ padding:12px 24px;background:linear-gradient(180deg,rgba(6,8,11,.96),rgba(6,8,11,.82));backdrop-filter:blur(9px);border-bottom:1px solid var(--line)}
+.seal{display:flex;align-items:center;gap:12px}
+.stamp{width:46px;height:46px;border:2px solid var(--sky);border-radius:8px;display:grid;place-items:center;
+ font-family:'Bricolage Grotesque';font-weight:800;font-size:8.5px;color:var(--sky);letter-spacing:.02em;position:relative;flex:none;text-align:center;line-height:1.05;
+ box-shadow:0 0 0 4px rgba(90,169,255,.07);animation:stampPulse 3.4s ease-in-out infinite}
+.stamp::after{content:"";position:absolute;inset:3px;border:1px dashed rgba(90,169,255,.4);border-radius:5px}
+@keyframes stampPulse{0%,100%{box-shadow:0 0 0 4px rgba(90,169,255,.07)}50%{box-shadow:0 0 0 9px rgba(90,169,255,.02)}}
+.seal .t1{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;line-height:1}
+.seal .t2{font-family:'JetBrains Mono';font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);margin-top:3px}
+.seal .t2 b{color:var(--sky)}
+.sealbar .spacer{flex:1}
+.chip{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;border:1px solid var(--line);color:var(--mute);display:flex;align-items:center;gap:7px}
+.chip b{color:var(--bone)}.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--sky);box-shadow:0 0 0 0 rgba(90,169,255,.5);animation:pulse 1.8s infinite}
+.chip.ok .dot{background:var(--teal);animation-name:pulseT}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(90,169,255,.45)}50%{box-shadow:0 0 0 6px rgba(90,169,255,0)}}
+@keyframes pulseT{0%,100%{box-shadow:0 0 0 0 rgba(25,195,166,.45)}50%{box-shadow:0 0 0 6px rgba(25,195,166,0)}}
+.searchbox{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:0 11px;background:var(--ink2);transition:.18s}
+.searchbox:focus-within{border-color:var(--sky);box-shadow:0 0 0 3px rgba(90,169,255,.08)}
+.searchbox input{background:none;border:none;color:var(--bone);font-family:'JetBrains Mono';font-size:12px;padding:8px 0;outline:none;width:150px}
+.searchbox input::placeholder{color:var(--mute2)}
+.shell{position:relative;z-index:2;display:grid;grid-template-columns:290px 1fr;gap:0;max-width:1520px;margin:0 auto}
+nav.toc{position:sticky;top:69px;align-self:start;height:calc(100vh - 69px);overflow-y:auto;padding:22px 14px 60px 22px;border-right:1px solid var(--line);scrollbar-width:thin}
+nav.toc .nh{font-family:'JetBrains Mono';font-size:9px;letter-spacing:.24em;text-transform:uppercase;color:var(--mute2);padding:0 10px 10px}
+nav.toc a{display:flex;align-items:center;gap:10px;padding:8px 11px;border-left:2px solid transparent;color:var(--mute);text-decoration:none;font-size:12px;transition:.15s;border-radius:0 4px 4px 0}
+nav.toc a:hover{color:var(--bone);background:var(--ink2)}
+nav.toc a.on{color:var(--bone);border-left-color:var(--sky);background:var(--ink2)}
+nav.toc a .ph{font-family:'JetBrains Mono';font-size:9px;color:var(--sky);width:26px;flex:none}
+nav.toc a .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+nav.toc .progwrap{margin:4px 10px 16px;height:4px;background:var(--line);border-radius:3px;overflow:hidden}
+nav.toc .progwrap i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--sky),var(--teal));transition:width .4s}
+main{padding:0 40px 120px;min-width:0}
+.head{position:relative;padding:50px 0 28px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.head .ey{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--sky);display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.head .ey .bar{width:30px;height:1px;background:var(--sky)}
+.head h1{font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(38px,6.4vw,84px);line-height:.86;letter-spacing:-.03em}
+.head h1 em{font-style:normal;color:var(--sky)}
+.head .sub{font-family:'Bricolage Grotesque';font-weight:500;font-style:italic;font-size:clamp(17px,2.2vw,27px);color:var(--mute);margin-top:14px;max-width:30ch}
+.doc{scroll-margin-top:84px;padding:14px 0 52px;border-bottom:1px solid var(--line);margin-bottom:8px;position:relative}
+.doc:last-child{border-bottom:none}
+.doc .ph-tag{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--sky);display:inline-flex;align-items:center;gap:9px;margin-bottom:14px}
+.doc .ph-tag .bar{width:26px;height:1px;background:var(--sky)}
+.doc h2{font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(27px,3.5vw,44px);line-height:.96;letter-spacing:-.02em;margin-bottom:8px}
+.doc h2 em{font-style:normal;color:var(--sky)}
+.doc .lede{color:var(--mute);font-size:15px;max-width:78ch;margin:6px 0 26px}
+.doc .lede b{color:var(--bone);font-weight:500}
+.doc h3{font-family:'Bricolage Grotesque';font-weight:700;font-size:19px;margin:30px 0 12px;display:flex;align-items:center;gap:10px}
+.doc h3 .ix{font-family:'JetBrains Mono';font-size:10px;color:var(--mute2);border:1px solid var(--line);padding:2px 7px;border-radius:3px}
+.doc h4{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:22px 0 9px}
+.doc p{margin:0 0 13px;max-width:84ch}
+.doc p b,.doc li b{color:var(--bone);font-weight:500}
+.doc ul,.doc ol{margin:0 0 14px 0;padding-left:0;list-style:none;max-width:88ch}
+.doc li{padding:5px 0 5px 20px;position:relative}
+.doc li::before{content:"";position:absolute;left:2px;top:13px;width:6px;height:6px;border:1px solid var(--mute2);transform:rotate(45deg)}
+.doc li.ok::before{background:var(--teal);border-color:var(--teal)}
+.doc li.no::before{background:var(--rose);border-color:var(--rose)}
+.doc li.warn::before{background:var(--amber);border-color:var(--amber)}
+.doc code{font-family:'JetBrains Mono';font-size:.86em;color:var(--teal);background:rgba(25,195,166,.08);padding:1px 6px;border-radius:3px}
+.doc .kbd{font-family:'JetBrains Mono';font-size:.82em;color:var(--amber);background:rgba(244,180,0,.08);padding:1px 6px;border-radius:3px}
+.tblwrap{overflow-x:auto;margin:6px 0 18px;border:1px solid var(--line);border-radius:4px}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono';font-size:11px;min-width:620px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--ink3);color:var(--sky);font-weight:500;font-size:9px;letter-spacing:.07em;text-transform:uppercase;position:sticky;top:0}
+tbody tr{transition:.12s}tbody tr:hover{background:var(--ink2)}
+td .pill{font-size:9px;letter-spacing:.05em;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.pill.fz{background:var(--gk);color:var(--teal)}.pill.pb{background:var(--gp);color:var(--sky)}
+.pill.rs{background:var(--gs);color:#1a1300}.pill.no{background:var(--gx);color:var(--rose)}
+.pill.vi{background:var(--gv);color:var(--violet)}
+td.y{color:var(--teal);font-weight:700}td.n{color:var(--rose);font-weight:700}td.s{color:var(--amber)}td.x{color:var(--mute2)}
+.call{border-left:3px solid var(--sky);background:linear-gradient(90deg,rgba(90,169,255,.05),transparent);padding:14px 18px;margin:16px 0;max-width:88ch}
+.call.freeze{border-left-color:var(--rose);background:linear-gradient(90deg,rgba(255,93,115,.05),transparent)}
+.call.ok{border-left-color:var(--teal);background:linear-gradient(90deg,rgba(25,195,166,.05),transparent)}
+.call .ch{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--sky);margin-bottom:6px}
+.call.freeze .ch{color:var(--rose)}.call.ok .ch{color:var(--teal)}
+.call p{margin:0;font-size:13.5px}
+
+/* dependency graph svg */
+.graphwrap{border:1px solid var(--line);border-radius:6px;background:radial-gradient(700px 400px at 50% 0%,rgba(90,169,255,.05),transparent);overflow:hidden;margin:8px 0 18px;position:relative}
+.graphwrap svg{display:block;width:100%;height:auto}
+.gnode{cursor:pointer}
+.gnode rect{fill:var(--ink2);stroke:var(--line2);stroke-width:1.2;transition:.18s}
+.gnode text{fill:var(--bone);font-family:'JetBrains Mono';font-size:9px;pointer-events:none}
+.gnode .gid{fill:var(--sky);font-weight:700}
+.gnode.apex rect{stroke:var(--rose);fill:var(--gx)}
+.gnode.apex .gid{fill:var(--rose)}
+.gnode.dep rect{stroke:var(--violet)}
+.gnode.dim{opacity:.22}
+.gnode.hot rect{stroke:var(--amber);stroke-width:2.2;filter:drop-shadow(0 0 6px rgba(244,180,0,.4))}
+.gedge{stroke:var(--line2);stroke-width:1.2;fill:none;transition:.18s}
+.gedge.hot{stroke:var(--amber);stroke-width:2}
+.gedge.in{stroke:var(--teal);stroke-width:2}
+.gedge.out{stroke:var(--rose);stroke-width:2}
+.glegend{position:absolute;top:10px;left:12px;display:flex;gap:14px;flex-wrap:wrap;font-family:'JetBrains Mono';font-size:9px;color:var(--mute)}
+.glegend span{display:flex;align-items:center;gap:5px}
+.glegend i{width:14px;height:3px;display:inline-block}
+.gtip{position:absolute;pointer-events:none;background:var(--ink3);border:1px solid var(--line2);padding:8px 11px;font-family:'JetBrains Mono';font-size:10px;color:var(--bone);max-width:240px;opacity:0;transition:.12s;z-index:5}
+.gtip b{color:var(--sky)}
+
+/* pipeline particle columns */
+.pipe{display:flex;gap:0;align-items:stretch;overflow-x:auto;margin:8px 0 18px;padding-bottom:6px}
+.pcol{flex:1;min-width:96px;display:flex;flex-direction:column;align-items:center;position:relative}
+.pcol .pbox{border:1px solid var(--line);background:var(--ink2);padding:12px 8px;text-align:center;width:100%;font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.04em;color:var(--bone);position:relative;z-index:2;transition:.18s}
+.pcol .pbox .pk{display:block;color:var(--sky);font-weight:700;font-size:8.5px;letter-spacing:.1em;margin-bottom:4px}
+.pcol:hover .pbox{border-color:var(--sky);transform:translateY(-2px)}
+.pcol .pconn{width:2px;height:30px;background:linear-gradient(var(--line2),var(--line));position:relative}
+.pcol .pconn i{position:absolute;left:-2px;width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 7px var(--teal);animation:drop 1.7s linear infinite}
+.pcol .pconn i:nth-child(2){animation-delay:.85s}
+@keyframes drop{0%{top:0;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:100%;opacity:0}}
+
+/* phase timeline */
+.phases{display:flex;flex-direction:column;gap:0;margin:8px 0 18px}
+.phrow{display:grid;grid-template-columns:120px 1fr;gap:0;align-items:stretch}
+.phrow .phk{background:var(--ink2);border:1px solid var(--line);border-right:none;padding:14px 16px;display:flex;flex-direction:column;justify-content:center;position:relative}
+.phrow .phk .pn{font-family:'Bricolage Grotesque';font-weight:800;font-size:24px;color:var(--sky);line-height:1}
+.phrow .phk .pt{font-family:'JetBrains Mono';font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute2);margin-top:5px}
+.phrow .phk .gd{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal)}
+.phrow .phb{border:1px solid var(--line);padding:13px 18px}
+.phrow .phb h4{margin:0 0 5px;font-family:'Bricolage Grotesque';font-size:15px;color:var(--bone);letter-spacing:0;text-transform:none}
+.phrow .phb .d{font-size:12px;color:var(--mute)}
+.phrow .phb .tags{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+
+.verdict{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 20px}
+.verdict .v{flex:1;min-width:150px;border:1px solid var(--line);padding:16px;text-align:center}
+.verdict .v .big{font-family:'Bricolage Grotesque';font-weight:800;font-size:34px;line-height:1}
+.verdict .v.pass .big{color:var(--teal)}.verdict .v.tens .big{color:var(--amber)}.verdict .v.stop .big{color:var(--rose)}
+.verdict .v .l{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:8px}
+.copybtn{position:absolute;top:14px;right:14px;font-family:'JetBrains Mono';font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px;border:1px solid var(--line);background:var(--ink2);color:var(--mute);cursor:pointer;opacity:0;transition:.18s}
+.doc:hover .copybtn{opacity:1}.copybtn:hover{color:var(--sky);border-color:var(--sky)}
+.copybtn.done{color:var(--teal);border-color:var(--teal)}
+footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:30px 40px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;color:var(--mute);font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.04em;max-width:1520px;margin:0 auto}
+footer b{color:var(--bone)}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .55s,transform .55s}
+.reveal.in{opacity:1;transform:none}
+@media(max-width:1040px){
+ .shell{grid-template-columns:1fr}
+ nav.toc{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px;padding:14px}
+ nav.toc .nh,nav.toc .progwrap{display:none}
+ nav.toc a{border-left:none;border:1px solid var(--line);border-radius:4px;padding:7px 10px}
+ main{padding:0 20px 90px}.phrow{grid-template-columns:1fr}.phrow .phk{border-right:1px solid var(--line);border-bottom:none;flex-direction:row;align-items:center;gap:12px}
+}
+</style>
+</head>
+<body>
+<canvas id="ambient"></canvas>
+<div class="sealbar">
+  <div class="seal">
+    <div class="stamp">BUILD<br>GRAPH</div>
+    <div><div class="t1">ST-LMS · Document Dependency</div>
+      <div class="t2">official build &amp; implementation graph · <b>reads MASTER first</b></div></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="searchbox"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="q" type="text" placeholder="cari simpul…"></div>
+  <div class="chip"><span class="dot"></span>graph <b>16 NODES</b></div>
+  <div class="chip ok"><span class="dot"></span>order <b>LOCKED</b></div>
+  <div class="chip mono" id="wib">--:--:-- WIB</div>
+</div>
+
+<div class="shell">
+<nav class="toc" id="toc">
+  <div class="nh">dependency map</div>
+  <div class="progwrap"><i id="readprog"></i></div>
+  <a href="#d0" data-d="d0"><span class="ph">§0</span><span class="nm">Document Identity</span></a>
+  <a href="#d1" data-d="d1"><span class="ph">§1</span><span class="nm">Reading Order</span></a>
+  <a href="#d2" data-d="d2"><span class="ph">§2</span><span class="nm">Document Dependency Graph</span></a>
+  <a href="#d3" data-d="d3"><span class="ph">§3</span><span class="nm">Feature Dependency Graph</span></a>
+  <a href="#d4" data-d="d4"><span class="ph">§4</span><span class="nm">Pipeline Dependency Graph</span></a>
+  <a href="#d5" data-d="d5"><span class="ph">§5</span><span class="nm">Clone Dependency Graph</span></a>
+  <a href="#d6" data-d="d6"><span class="ph">§6</span><span class="nm">Knowledge Dependency Graph</span></a>
+  <a href="#d7" data-d="d7"><span class="ph">§7</span><span class="nm">Snapshot Dependency Graph</span></a>
+  <a href="#d8" data-d="d8"><span class="ph">§8</span><span class="nm">Implementation Order</span></a>
+  <a href="#d9" data-d="d9"><span class="ph">§9</span><span class="nm">Build Graph (PHASE 0–12)</span></a>
+  <a href="#d10" data-d="d10"><span class="ph">§10</span><span class="nm">Validation Order</span></a>
+  <a href="#d11" data-d="d11"><span class="ph">§11</span><span class="nm">Build Stop Rule</span></a>
+  <a href="#d12" data-d="d12"><span class="ph">§12</span><span class="nm">Readiness Graph</span></a>
+</nav>
+
+<main id="main">
+
+<div class="head reveal" id="top">
+  <div class="ey"><span class="bar"></span>SECTION 00 · DOCUMENT IDENTITY</div>
+  <h1>Document <em>Dependency</em></h1>
+  <div class="sub">build graph & implementation graph resmi seluruh Native HTML OS.</div>
+</div>
+
+<!-- §0 -->
+<section class="doc reveal" id="d0">
+<button class="copybtn" data-copy="d0">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 00 · DOCUMENT IDENTITY</div>
+<h2>Identitas <em>Dokumen</em></h2>
+<p class="lede">DOCUMENT_DEPENDENCY.html adalah <b>build graph & implementation graph tertinggi</b> bagi ST-LMS. Ia tidak mendefinisikan ulang konstitusi (itu ranah MASTER_SPECIFICATION), melainkan <b>urutan & dependensi</b>: apa dibaca dulu, apa dibangun dulu, apa divalidasi dulu, dan apa menggantung pada apa. Graph interaktif di §2 adalah representasi hidup dari dependensi ini — hover sebuah simpul untuk menyorot prasyarat (hijau) & dependen (merah)-nya.</p>
+<div class="call ok"><div class="ch">hubungan dengan MASTER_SPECIFICATION</div><p>MASTER_SPECIFICATION = <b>apa</b> yang beku (hukum/matriks/snapshot). Dokumen ini = <b>urutan & dependensi</b> membangunnya. Keduanya saling merujuk; MASTER menang pada konflik isi, dokumen ini menang pada konflik urutan.</p></div>
+</section>
+
+<!-- §1 READING ORDER -->
+<section class="doc reveal" id="d1">
+<button class="copybtn" data-copy="d1">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 01 · DOCUMENT READING ORDER</div>
+<h2>Urutan <em>Membaca</em></h2>
+<p class="lede">Seorang implementer yang belum pernah melihat proyek wajib membaca dalam urutan ini. Melompat = kehilangan prasyarat konseptual.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>#</th><th>Dokumen</th><th>Memberi</th><th>Prasyarat Baca</th></tr></thead>
+<tbody>
+<tr><td>0</td><td><b>MASTER_SPECIFICATION.html</b></td><td>hukum tertinggi, matriks, snapshot, stop-rule</td><td>— (puncak)</td></tr>
+<tr><td>1</td><td>DOCUMENT_DEPENDENCY.html (ini)</td><td>urutan & dependensi</td><td>MASTER</td></tr>
+<tr><td>2</td><td>Doc01 Feature Inventory Audit</td><td>inventory 19 domain + 82 komponen</td><td>MASTER</td></tr>
+<tr><td>3</td><td>Doc02 Implementation Constitution</td><td>15 hukum implementasi + platform-binding</td><td>MASTER, Doc01</td></tr>
+<tr><td>4</td><td>Doc03 Program Target & Benchmark</td><td>target PASS/FAIL</td><td>Doc02</td></tr>
+<tr><td>5</td><td>Doc04 Workspace Architecture</td><td>tiered storage browser</td><td>Doc02</td></tr>
+<tr><td>6</td><td>Doc05 Runtime Architecture</td><td>thread topology</td><td>Doc04</td></tr>
+<tr><td>7</td><td>Doc06 Pipeline Architecture</td><td>22 tahap SHARED/PER-CLONE/ON-DEMAND</td><td>Doc02, MASTER§6</td></tr>
+<tr><td>8</td><td>Doc07 Market Snapshot Architecture</td><td>10 snapshot W/OD</td><td>Doc06, MASTER§9</td></tr>
+<tr><td>9</td><td>Doc08 Knowledge Architecture</td><td>6 entitas unidirectional</td><td>Doc07</td></tr>
+<tr><td>10</td><td>Doc09 Simulation Architecture</td><td>sim first-class</td><td>Doc06, Doc07</td></tr>
+<tr><td>11</td><td>Doc10 Replay Architecture</td><td>6 replay</td><td>Doc07, Doc09</td></tr>
+<tr><td>12</td><td>Doc11 Governance Architecture</td><td>6 validasi + 3 rem</td><td>MASTER§11</td></tr>
+<tr><td>13</td><td>Doc12 HTML OS Blueprint</td><td>modul→thread→store</td><td>Doc04–11</td></tr>
+<tr><td>14</td><td>Doc13 Implementation Plan</td><td>langkah S1–S15</td><td>Doc01–12</td></tr>
+<tr><td>15</td><td>Doc14 Build Approval Report</td><td>15 stop-rule PASS</td><td>Doc01–13</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §2 DOC DEPENDENCY GRAPH -->
+<section class="doc reveal" id="d2">
+<button class="copybtn" data-copy="d2">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 02 · DOCUMENT DEPENDENCY GRAPH</div>
+<h2>Graph <em>Dependensi Dokumen</em></h2>
+<p class="lede">Simpul = dokumen; tepi = dependensi (anak → prasyarat). <b>Hover</b> simpul untuk menyorot prasyarat (hijau) & dependen (merah). Tabel di bawah merinci per dokumen: prerequisite, dependency, validation requirement, implementation requirement.</p>
+<div class="graphwrap" id="graphwrap">
+  <div class="glegend">
+    <span><i style="background:var(--rose)"></i>apex</span>
+    <span><i style="background:var(--teal)"></i>prasyarat</span>
+    <span><i style="background:var(--rose)"></i>dependen</span>
+    <span><i style="background:var(--violet)"></i>meta</span>
+  </div>
+  <div class="gtip" id="gtip"></div>
+  <svg id="graph" viewBox="0 0 980 560" preserveAspectRatio="xMidYMid meet"></svg>
+</div>
+<div class="tblwrap"><table>
+<thead><tr><th>Dokumen</th><th>Prerequisite</th><th>Dependency</th><th>Validation Req.</th><th>Implementation Req.</th></tr></thead>
+<tbody>
+<tr><td>MASTER_SPEC</td><td>—</td><td>history desain beku</td><td>16 konstitusi lengkap; 18 hukum; matriks 7-kolom</td><td>menjadi kriteria penerimaan semua langkah</td></tr>
+<tr><td>DEPENDENCY</td><td>MASTER</td><td>Doc01–14</td><td>graph konsisten; tak ada siklus terlarang</td><td>build graph resmi</td></tr>
+<tr><td>Doc01 Inventory</td><td>MASTER</td><td>referensi HTML</td><td>19 domain + 82 komponen; 0 missing</td><td>inventory jadi basis S1</td></tr>
+<tr><td>Doc02 Impl Const.</td><td>MASTER,Doc01</td><td>—</td><td>15 hukum; platform-binding setia</td><td>S1 bedrock</td></tr>
+<tr><td>Doc03 Target</td><td>Doc02</td><td>—</td><td>tiap target punya PASS/FAIL deterministik</td><td>DoD per langkah</td></tr>
+<tr><td>Doc04 Workspace</td><td>Doc02</td><td>—</td><td>tiered storage; writer serial</td><td>S2</td></tr>
+<tr><td>Doc05 Runtime</td><td>Doc04</td><td>—</td><td>hot sekuensial; worker dingin; nol race</td><td>S2/S9/S10</td></tr>
+<tr><td>Doc06 Pipeline</td><td>Doc02,MASTER§6</td><td>—</td><td>jenis tahap benar; Card Sharing</td><td>S3–S7</td></tr>
+<tr><td>Doc07 Snapshot</td><td>Doc06,MASTER§9</td><td>—</td><td>10 snapshot; W/OD; NULL jujur</td><td>S4–S6</td></tr>
+<tr><td>Doc08 Knowledge</td><td>Doc07</td><td>—</td><td>unidirectional; no-ML; vektor beku</td><td>S9</td></tr>
+<tr><td>Doc09 Simulation</td><td>Doc06,Doc07</td><td>—</td><td>adverse-first; 4 jenis; persist serial</td><td>S7/S8</td></tr>
+<tr><td>Doc10 Replay</td><td>Doc07,Doc09</td><td>—</td><td>6 replay reproduktibel; resume</td><td>S8</td></tr>
+<tr><td>Doc11 Governance</td><td>MASTER§11</td><td>—</td><td>6 validasi; 3 rem; rollback</td><td>S12</td></tr>
+<tr><td>Doc12 Blueprint</td><td>Doc04–11</td><td>—</td><td>modul→thread→store lengkap; anti-mock</td><td>S13/S14</td></tr>
+<tr><td>Doc13 Plan</td><td>Doc01–12</td><td>—</td><td>urutan menghormati dependensi</td><td>S1–S15</td></tr>
+<tr><td>Doc14 Approval</td><td>Doc01–13</td><td>—</td><td>15 stop-rule PASS</td><td>gerbang PHASE implementasi</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §3 FEATURE DEPENDENCY -->
+<section class="doc reveal" id="d3">
+<button class="copybtn" data-copy="d3">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 03 · FEATURE DEPENDENCY GRAPH</div>
+<h2>Graph <em>Dependensi Fitur</em></h2>
+<p class="lede">Pemetaan dependensi antar-domain ST-LMS. Panah = “membutuhkan output dari”. Ini turunan langsung dari pipeline & Card Sharing; tidak menambah/mengurangi fitur terhadap Doc01–14.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Domain</th><th>Menghasilkan</th><th>Bergantung Pada</th><th>Dipakai Oleh</th></tr></thead>
+<tbody>
+<tr><td>BOOT</td><td>runtime+config+ckpt</td><td>—</td><td>semua</td></tr>
+<tr><td>MARKET</td><td>market_snapshot</td><td>BOOT</td><td>TRUTH</td></tr>
+<tr><td>TRUTH</td><td>truth_snapshot (st,ATR,EMA,MACD,W%R,dist)</td><td>MARKET</td><td>STRUCTURE,EVIDENCE</td></tr>
+<tr><td>STRUCTURE</td><td>structure_snapshot (cage,wave,ladder,nearest,pp)</td><td>TRUTH</td><td>CLONE,GRID,EVIDENCE(ctx)</td></tr>
+<tr><td>EVIDENCE</td><td>evidence_snapshot (3 bus,OI,MTF)</td><td>TRUTH,MARKET,STRUCTURE</td><td>CLONE,HIVEMIND</td></tr>
+<tr><td>CLONE</td><td>clone_observation+snapshot</td><td>STRUCTURE,EVIDENCE,TRUTH</td><td>TRADE,STATISTICS</td></tr>
+<tr><td>TRADE/POSITION</td><td>marker, mae/mfe</td><td>CLONE,STRUCTURE,EVIDENCE</td><td>STATISTICS</td></tr>
+<tr><td>GRID</td><td>grid_fills, marker GRID</td><td>STRUCTURE(cage)</td><td>STATISTICS</td></tr>
+<tr><td>STATISTICS</td><td>statistics_snapshot</td><td>TRADE,STRUCTURE</td><td>KNOWLEDGE</td></tr>
+<tr><td>KNOWLEDGE</td><td>knowledge_snapshot</td><td>STATISTICS,SNAPSHOT(all)</td><td>PREDICTION,GOVERNANCE</td></tr>
+<tr><td>PREDICTION</td><td>prediction_snapshot</td><td>KNOWLEDGE</td><td>CONSUMER</td></tr>
+<tr><td>GOVERNANCE</td><td>keputusan+config_version</td><td>KNOWLEDGE,BOUNDED</td><td>semua (param only)</td></tr>
+<tr><td>CONSUMER</td><td>intent/report</td><td>PREDICTION,KNOWLEDGE</td><td>— (opsional)</td></tr>
+<tr><td>AUDIT/VIS</td><td>audit+viewer</td><td>semua card</td><td>human</td></tr>
+</tbody></table></div>
+<div class="call freeze"><div class="ch">siklus terlarang</div><p>Satu-satunya panah balik yang sah = GOVERNANCE → parameter <code>BOUNDED</code> (Kelas-A) & PEX (Kelas-B via WASIT). Panah balik ke TRUTH/STRUCTURE/EVIDENCE/CLONE-logic = <span class="pill no">BUILD STOP</span> (pelanggaran LAW-MASTER-04).</p></div>
+</section>
+
+<!-- §4 PIPELINE DEPENDENCY -->
+<section class="doc reveal" id="d4">
+<button class="copybtn" data-copy="d4">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 04 · PIPELINE DEPENDENCY GRAPH</div>
+<h2>Graph <em>Dependensi Pipeline</em></h2>
+<p class="lede">Aliran eksekusi per closed candle dengan partikel penanda arah data. Setiap kolom bergantung pada kolom sebelumnya; CLONE bercabang 3× (sub-ledger terisolasi) lalu menyatu kembali ke STATISTICS yang card-agnostic.</p>
+<div class="pipe" id="pipe"></div>
+<div class="call ok"><div class="ch">hukum dependensi pipeline</div><p>BOOT→MARKET→TRUTH→STRUCTURE→EVIDENCE = <b>SHARED 1×</b> (dilarang dalam loop clone). CLONE→TRADE = <b>PER-CLONE 3×</b>. STATISTICS→KNOWLEDGE→PREDICTION→GOVERNANCE = <b>SHARED-AGAIN 1×</b> card-agnostic. BENCHMARK = <b>ON-DEMAND</b> (tak per-candle). CONSUMER = opsional di ujung.</p></div>
+</section>
+
+<!-- §5 CLONE DEPENDENCY -->
+<section class="doc reveal" id="d5">
+<button class="copybtn" data-copy="d5">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 05 · CLONE DEPENDENCY GRAPH</div>
+<h2>Graph <em>Dependensi Clone</em></h2>
+<div class="tblwrap"><table>
+<thead><tr><th>Clone</th><td colspan="1">Membaca (dependensi masuk)</th><th>Menulis (dependensi keluar)</th><th>Independensi</th></tr></thead>
+<tbody>
+<tr><td>LONG</td><td>stDir,dist_floor,dist_ceiling,dir_ok(EMA,vd),corridor,cage,global</td><td>obs LONG, marker LONG, statistik LONG</td><td>ledger sendiri; tak baca SHORT/GRID</td></tr>
+<tr><td>SHORT</td><td>stDir,dist_ceiling(SL),dist_floor(ruang),dir_ok cermin,corridor SHORT</td><td>obs SHORT, marker SHORT, statistik SHORT</td><td>ledger sendiri</td></tr>
+<tr><td>GRID</td><td>cage{status,upper,lower,pp,rangeAtr,breakout},required,config</td><td>obs grid_state, marker GRID, statistik GRID</td><td>buta arah; tak baca Direction/MTF</td></tr>
+</tbody></table></div>
+<p>Ketiganya <b>membaca peta bersama</b> (Card Sharing) namun <b>menulis terisolasi</b>. Global Orchestrator membaca ketiga ledger hanya untuk batas net/gross exposure — tidak untuk mencampur statistik.</p>
+</section>
+
+<!-- §6 KNOWLEDGE DEPENDENCY -->
+<section class="doc reveal" id="d6">
+<button class="copybtn" data-copy="d6">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 06 · KNOWLEDGE DEPENDENCY GRAPH</div>
+<h2>Graph <em>Dependensi Knowledge</em></h2>
+<div class="tblwrap"><table>
+<thead><tr><th>Entitas</th><th>Dependensi Masuk</th><th>Dependensi Keluar</th><th>Urutan</th></tr></thead>
+<tbody>
+<tr><td>River</td><td>seluruh card</td><td>store+index+chronicle</td><td>terus (dasar)</td></tr>
+<tr><td>Academy</td><td>marker+snapshot (join)</td><td>academy_artifacts</td><td>setelah River</td></tr>
+<tr><td>Oracle</td><td>vektor kini+historis</td><td>oracle_match</td><td>paralel Academy</td></tr>
+<tr><td>HiveMind</td><td>artifacts+oracle+<b>evidence_snapshot</b></td><td>market_understanding</td><td>setelah Academy+Oracle</td></tr>
+<tr><td>Darwin</td><td>artifacts+bounded+PEX</td><td>proposals</td><td>setelah Academy</td></tr>
+<tr><td>Librarian</td><td>artifacts</td><td>lifecycle events</td><td>setelah Academy</td></tr>
+</tbody></table></div>
+<p>Rantai kanonik: <code>River → Academy → (Oracle ∥ ) → HiveMind → Darwin → Librarian → Chronicle</code>. HiveMind <b>wajib</b> menarik <code>currentEvidence</code> dari evidence_snapshot (bukan konstanta) — dependensi ini menutup celah mock-evidence.</p>
+</section>
+
+<!-- §7 SNAPSHOT DEPENDENCY -->
+<section class="doc reveal" id="d7">
+<button class="copybtn" data-copy="d7">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 07 · SNAPSHOT DEPENDENCY GRAPH</div>
+<h2>Graph <em>Dependensi Snapshot</em></h2>
+<div class="tblwrap"><table>
+<thead><tr><th>Snapshot</th><th>Producer</th><th>Consumer</th><th>Dibuat</th><th>Divalidasi</th><th>Direplay</th></tr></thead>
+<tbody>
+<tr><td>Market</td><td>MARKET</td><td>TRUTH</td><td>candle CLOSED</td><td>checksum+hygiene</td><td>candle/snapshot replay</td></tr>
+<tr><td>Truth</td><td>TRUTH</td><td>STRUCTURE,EVIDENCE</td><td>setelah Market</td><td>checksum+lineage</td><td>snapshot replay</td></tr>
+<tr><td>Structure</td><td>STRUCTURE</td><td>CLONE,GRID</td><td>setelah Truth</td><td>HUKUM CAGE check</td><td>snapshot replay</td></tr>
+<tr><td>Evidence</td><td>EVIDENCE</td><td>CLONE,HIVEMIND</td><td>setelah Truth</td><td>clamp+status</td><td>snapshot replay</td></tr>
+<tr><td>Clone</td><td>CLONE ×3</td><td>STATISTICS</td><td>per candle</td><td>3-obs check</td><td>clone replay</td></tr>
+<tr><td>Trade</td><td>SIM</td><td>STATISTICS</td><td>per candle</td><td>net=WIN check</td><td>trade replay</td></tr>
+<tr><td>Statistics</td><td>STATISTICS</td><td>KNOWLEDGE</td><td>setelah Trade</td><td>sample-gate</td><td>knowledge replay</td></tr>
+<tr><td>Knowledge</td><td>KNOWLEDGE</td><td>PREDICTION,GOV</td><td>setelah Statistics</td><td>unidirectional check</td><td>knowledge replay</td></tr>
+<tr><td>Benchmark</td><td>BENCHMARK</td><td>GOVERNANCE</td><td>on-demand</td><td>5-gate</td><td>governance replay</td></tr>
+<tr><td>Prediction</td><td>PREDICTION</td><td>CONSUMER</td><td>setelah Knowledge</td><td>no-model check</td><td>knowledge replay</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §8 IMPLEMENTATION ORDER -->
+<section class="doc reveal" id="d8">
+<button class="copybtn" data-copy="d8">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 08 · IMPLEMENTATION ORDER</div>
+<h2>Urutan <em>Implementasi</em></h2>
+<p class="lede">Fase implementasi Native-HTML OS, menghormati dependensi §3/§4. Tiap fase diakhiri Runtime Validation (§10) sebelum lanjut.</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Fase</th><th>Membangun</th><th>Menghormati</th></tr></thead>
+<tbody>
+<tr><td>F1 Bedrock</td><td>decimal/int-tick/canonical, id, wib, hash, prng, lifecycle, card, validator, bus, bounded, governor, IndexedDB writer-serial</td><td>LAW-01/03/17</td></tr>
+<tr><td>F2 Boot/Workspace</td><td>BOOT, workspace, checkpoint, config</td><td>LAW-17</td></tr>
+<tr><td>F3 Market</td><td>data.worker, hygiene, derived, cascade, gap</td><td>LAW-02</td></tr>
+<tr><td>F4 Truth</td><td>point→line→slope→wave→versioning→validation→flip</td><td>LAW-08/15, HUKUM wave</td></tr>
+<tr><td>F5 Structure</td><td>cage+wall+ladder+nearest+cluster</td><td>HUKUM CAGE</td></tr>
+<tr><td>F6 Evidence</td><td>3-bus+oi+voldelta+mtf+maxscore</td><td>LAW-08/15</td></tr>
+<tr><td>F7 Clone+Trade+Position+Grid</td><td>3 ledger, orchestrator, grid_eval</td><td>LAW-05/06/11, adverse-first</td></tr>
+<tr><td>F8 Sim+Replay</td><td>engine + 6 replay</td><td>LAW-09/16</td></tr>
+<tr><td>F9 Statistics+Knowledge</td><td>river→academy→oracle→hivemind→darwin→librarian→cermin</td><td>LAW-04/12/13</td></tr>
+<tr><td>F10 Benchmark</td><td>wasit worker paralel</td><td>LAW-14</td></tr>
+<tr><td>F11 Prediction</td><td>empiris</td><td>LAW-13</td></tr>
+<tr><td>F12 Governance</td><td>6 validasi + workflow + rollback</td><td>LAW-14</td></tr>
+<tr><td>F13 Consumer</td><td>fund/veto/intent/simplugin/liveadapter-off + API internal</td><td>Consumer const.</td></tr>
+<tr><td>F14 Audit+Vis</td><td>6 audit + 5 viewer</td><td>LAW-18, no-mock</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §9 BUILD GRAPH -->
+<section class="doc reveal" id="d9">
+<button class="copybtn" data-copy="d9">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 09 · BUILD GRAPH</div>
+<h2>Build <em>Graph</em> (PHASE 0–12)</h2>
+<p class="lede">Gerbang validasi berurutan. Tiap PHASE memproduksi artefak validasi; gagal = <span class="pill no">BUILD STOP</span> (§11). Ini graph resmi yang diwajibkan prompt; nama PHASE mengikuti spesifikasi build graph (berbeda penamaan dari Doc, tetapi konsisten dependensi).</p>
+<div class="phases" id="phases"></div>
+</section>
+
+<!-- §10 VALIDATION ORDER -->
+<section class="doc reveal" id="d10">
+<button class="copybtn" data-copy="d10">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 10 · VALIDATION ORDER</div>
+<h2>Urutan <em>Validasi</em></h2>
+<p class="lede">Kapan build <b>boleh</b> lanjut vs <b>wajib</b> berhenti. Validasi berlapis: tiap PHASE punya gate; gate konstitusi/authority/build bersifat <b>hard</b> (stop), gate kinerja bersifat <b>soft</b> (catat, tak stop).</p>
+<div class="tblwrap"><table>
+<thead><tr><th>Gate</th><th>Jenis</th><th>Bila Lulus</th><th>Bila Gagal</th></tr></thead>
+<tbody>
+<tr><td>Constitution Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span></td></tr>
+<tr><td>Feature Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span> (missing feature/domain)</td></tr>
+<tr><td>Implementation Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span></td></tr>
+<tr><td>Architecture Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span></td></tr>
+<tr><td>Pipeline Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span> (jenis tahap salah)</td></tr>
+<tr><td>Knowledge Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span> (loop/ML/mock)</td></tr>
+<tr><td>Simulation Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span> (adverse-first/fee)</td></tr>
+<tr><td>Replay Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span> (non-deterministik)</td></tr>
+<tr><td>Governance Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span></td></tr>
+<tr><td>Blueprint Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span></td></tr>
+<tr><td>Implementation Plan Validation</td><td>HARD</td><td>lanjut</td><td><span class="pill no">STOP</span></td></tr>
+<tr><td>Build Approval</td><td>HARD</td><td>masuk PHASE implementasi</td><td><span class="pill no">STOP</span></td></tr>
+<tr><td>Performance (RAM/CPU)</td><td>SOFT</td><td>lanjut</td><td>catat + governor degrade</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- §11 BUILD STOP RULE -->
+<section class="doc reveal" id="d11">
+<button class="copybtn" data-copy="d11">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 11 · BUILD STOP RULE</div>
+<h2>Aturan <em>Build Stop</em></h2>
+<p class="lede">Seluruh kondisi yang <b>mewajibkan</b> build dihentikan. Ini cermin §12 MASTER_SPECIFICATION (15 kondisi) + kondisi spesifik graph. Build <b>dilarang</b> lanjut sebelum semua terselesaikan & tercatat sebagai <span class="pill rs">RESOLVED</span> (bukan konflik terbuka).</p>
+<ul>
+ <li class="no">Specification / Constitution / Governance conflict yang tak ter-resolve.</li>
+ <li class="no">Hidden assumption (nilai tanpa sumber / tanpa NULL+status).</li>
+ <li class="no">Missing feature / domain / pipeline / authority matrix / market logic.</li>
+ <li class="no">Undefined behavior / snapshot / clone-lifecycle / knowledge-lifecycle / simulation-lifecycle / implementation-contract.</li>
+ <li class="no">Dependency cycle terlarang (panah balik ke Core-logic).</li>
+ <li class="no">Reading-order violation (membangun fase tanpa prasyarat dokumen).</li>
+ <li class="no">Non-determinisme terdeteksi pada replay/validation.</li>
+ <li class="no">Pelanggaran LAW-MASTER-01..18 atau matriks authority (§5 MASTER).</li>
+</ul>
+<div class="call freeze"><div class="ch">tension vs conflict</div><p>Ketegangan yang <b>ter-resolve</b> (mis. placeholder referensi→kontrak field; Python→browser platform-binding) <b>bukan</b> build stop — ia dicatat <span class="pill rs">RESOLVED</span> dengan resolusi beku. Hanya konflik <b>terbuka</b> yang menghentikan build.</p></div>
+</section>
+
+<!-- §12 READINESS GRAPH -->
+<section class="doc reveal" id="d12">
+<button class="copybtn" data-copy="d12">copy §</button>
+<div class="ph-tag"><span class="bar"></span>SECTION 12 · IMPLEMENTATION READINESS GRAPH</div>
+<h2>Readiness <em>Graph</em> — Self Audit</h2>
+<div class="verdict">
+ <div class="v pass"><div class="big">5</div><div class="l">dimensi complete</div></div>
+ <div class="v tens"><div class="big">0</div><div class="l">dependency gap</div></div>
+ <div class="v stop"><div class="big">0</div><div class="l">build stop</div></div>
+</div>
+<div class="tblwrap"><table>
+<thead><tr><th>Dimensi</th><th>Pemeriksaan Graph</th><th>Hasil</th></tr></thead>
+<tbody>
+<tr><td>Document completeness</td><td>16 dokumen (MASTER+DEPENDENCY+Doc01–14) hadir & berurutan (§1)</td><td class="y">COMPLETE</td></tr>
+<tr><td>Dependency completeness</td><td>tiap simpul punya prerequisite+dependency+validation+impl (§2); tak ada simpul yatim</td><td class="y">COMPLETE</td></tr>
+<tr><td>Pipeline completeness</td><td>11 tahap pipeline terpetakan + jenis SHARED/PER-CLONE/ON-DEMAND (§4)</td><td class="y">COMPLETE</td></tr>
+<tr><td>Governance completeness</td><td>12 gate validasi + 8 stop-rule graph + rollback (§10/§11)</td><td class="y">COMPLETE</td></tr>
+<tr><td>Implementation completeness</td><td>14 fase implementasi menghormati dependensi (§8); build graph PHASE 0–12 (§9)</td><td class="y">COMPLETE</td></tr>
+</tbody></table></div>
+<div class="call ok"><div class="ch">keputusan readiness graph</div>
+<p><b>DOCUMENT_DEPENDENCY dinyatakan COMPLETE & LOCKED.</b> Build graph resmi kini siap: urutan baca (§1), graph dependensi dokumen/fitur/pipeline/clone/knowledge/snapshot (§2–§7), urutan implementasi (§8), build graph PHASE 0–12 (§9), urutan validasi (§10), stop-rule (§11), dan readiness 5-dimensi (§12) seluruhnya konsisten dengan MASTER_SPECIFICATION & Doc01–14. <b>Build APPROVED untuk memasuki PHASE 12 (Native HTML Implementation)</b> — dengan catatan bahwa implementasi tiap fase wajib lolos gate HARD §10 sebelum lanjut, dan setiap langkah merujuk MASTER_SPECIFICATION sebagai kriteria penerimaan tertinggi.</p></div>
+</section>
+
+</main>
+</div>
+
+<footer>
+ <div>ST-LMS · <b>DOCUMENT_DEPENDENCY</b> · official build &amp; implementation graph · 13 section · <b>ORDER LOCKED</b></div>
+ <div>artefak = <b>build graph</b> · baca <b>MASTER_SPECIFICATION</b> dulu · pada konflik urutan → <b>dokumen ini menang</b></div>
+</footer>
+
+<script>
+/* ===== ambient ===== */
+(function(){const cv=document.getElementById('ambient'),x=cv.getContext('2d');let w,h,pts,raf;const N=54;
+ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function size(){w=cv.width=innerWidth;h=cv.height=innerHeight;}
+ function init(){size();pts=Array.from({length:N},()=>({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.13,vy:(Math.random()-.5)*.13}));}
+ function frame(){x.clearRect(0,0,w,h);
+  for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1;}
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const a=pts[i],b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+   if(d<150){x.strokeStyle=`rgba(90,169,255,${.04*(1-d/150)})`;x.lineWidth=1;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();}}
+  for(const p of pts){x.fillStyle='rgba(25,195,166,.18)';x.beginPath();x.arc(p.x,p.y,1.05,0,7);x.fill();}
+  raf=requestAnimationFrame(frame);}
+ init();if(!reduce)frame();addEventListener('resize',()=>{cancelAnimationFrame(raf);init();if(!reduce)frame();});})();
+/* ===== clock ===== */
+(function(){const el=document.getElementById('wib');const p=n=>String(n).padStart(2,'0');
+ function t(){const d=new Date(Date.now()+7*3600000);el.textContent=`${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} WIB`;}t();setInterval(t,1000);})();
+/* ===== reveal / toc / prog / search / copy ===== */
+const rev=new IntersectionObserver(es=>es.forEach((en,i)=>{if(en.isIntersecting){en.target.style.transitionDelay=(Math.min(i,6)*45)+'ms';en.target.classList.add('in');rev.unobserve(en.target);}}),{threshold:.06});
+document.querySelectorAll('.reveal').forEach(e=>rev.observe(e));
+const docs=[...document.querySelectorAll('.doc, .head')];const links=[...document.querySelectorAll('nav.toc a')];
+const tocObs=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){const id=en.target.id;links.forEach(a=>a.classList.toggle('on',a.dataset.d===id));}}),{rootMargin:'-42% 0px -52% 0px'});
+docs.forEach(d=>tocObs.observe(d));
+const prog=document.getElementById('readprog');
+addEventListener('scroll',()=>{const h=document.documentElement;prog.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100).toFixed(1)+'%';},{passive:true});
+const q=document.getElementById('q');
+q.addEventListener('input',()=>{const t=q.value.trim().toLowerCase();docs.forEach(d=>{d.style.opacity=(!t||d.textContent.toLowerCase().includes(t))?'1':'.26';});});
+q.addEventListener('keydown',e=>{if(e.key==='Enter'){const t=q.value.trim().toLowerCase();docs.forEach(d=>d.style.opacity='1');const f=docs.find(d=>d.textContent.toLowerCase().includes(t));if(f)f.scrollIntoView({behavior:'smooth'});}});
+document.querySelectorAll('.copybtn').forEach(b=>b.addEventListener('click',()=>{const sec=document.getElementById(b.dataset.copy);navigator.clipboard?.writeText(sec.innerText).then(()=>{b.textContent='copied';b.classList.add('done');setTimeout(()=>{b.textContent='copy §';b.classList.remove('done');},1400);}).catch(()=>{b.textContent='err';});}));
+
+/* ===== §2 dependency graph (SVG interaktif) ===== */
+(function(){
+ const NS='http://www.w3.org/2000/svg';
+ const nodes=[
+  {id:'MASTER',label:'MASTER_SPEC',x:430,y:18,cls:'apex',tip:'Hukum tertinggi & matriks. Puncak hierarki; menang pada konflik isi.'},
+  {id:'DEP',label:'DEPENDENCY',x:800,y:18,cls:'dep',tip:'Build graph resmi (dokumen ini). Menang pada konflik urutan.'},
+  {id:'D01',label:'01 Inventory',x:60,y:110,tip:'19 domain + 82 komponen. Basis S1.'},
+  {id:'D02',label:'02 Impl Const',x:230,y:110,tip:'15 hukum implementasi + platform-binding.'},
+  {id:'D03',label:'03 Target',x:400,y:110,tip:'Target PASS/FAIL deterministik.'},
+  {id:'D04',label:'04 Workspace',x:570,y:110,tip:'Tiered storage browser; writer serial.'},
+  {id:'D05',label:'05 Runtime',x:740,y:110,tip:'Thread topology; nol race.'},
+  {id:'D06',label:'06 Pipeline',x:120,y:200,tip:'22 tahap SHARED/PER-CLONE/ON-DEMAND.'},
+  {id:'D07',label:'07 Snapshot',x:320,y:200,tip:'10 snapshot W/OD.'},
+  {id:'D08',label:'08 Knowledge',x:520,y:200,tip:'6 entitas unidirectional no-ML.'},
+  {id:'D09',label:'09 Simulation',x:720,y:200,tip:'Sim first-class; adverse-first.'},
+  {id:'D10',label:'10 Replay',x:180,y:290,tip:'6 replay reproduktibel.'},
+  {id:'D11',label:'11 Governance',x:400,y:290,tip:'6 validasi + 3 rem + rollback.'},
+  {id:'D12',label:'12 Blueprint',x:620,y:290,tip:'Modul→thread→store; anti-mock.'},
+  {id:'D13',label:'13 Plan',x:300,y:380,tip:'Langkah S1–S15.'},
+  {id:'D14',label:'14 Approval',x:540,y:380,tip:'15 stop-rule PASS → gerbang implementasi.'}
+ ];
+ const edges=[
+  ['D01','MASTER'],['D02','MASTER'],['DEP','MASTER'],
+  ['D02','D01'],['D03','D02'],['D04','D02'],['D05','D04'],
+  ['D06','D02'],['D06','MASTER'],['D07','D06'],['D07','MASTER'],
+  ['D08','D07'],['D09','D06'],['D09','D07'],['D10','D07'],['D10','D09'],
+  ['D11','MASTER'],['D12','D08'],['D12','D11'],['D13','D12'],['D14','D13'],['DEP','D14']
+ ];
+ const svg=document.getElementById('graph');const tip=document.getElementById('gtip');const wrap=document.getElementById('graphwrap');
+ const NW=128,NH=34;const byId={};nodes.forEach(n=>byId[n.id]=n);
+ // edges first
+ const edgeEls=[];
+ edges.forEach(([a,b])=>{const A=byId[a],B=byId[b];const x1=A.x+NW/2,y1=A.y+NH,x2=B.x+NW/2,y2=B.y;
+  const my=(y1+y2)/2;const p=document.createElementNS(NS,'path');
+  p.setAttribute('d',`M ${x1} ${y1} C ${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`);
+  p.setAttribute('class','gedge');p.dataset.a=a;p.dataset.b=b;svg.appendChild(p);edgeEls.push(p);});
+ // nodes
+ const nodeEls={};
+ nodes.forEach(n=>{const g=document.createElementNS(NS,'g');g.setAttribute('class','gnode '+ (n.cls||''));g.setAttribute('transform',`translate(${n.x},${n.y})`);
+  const r=document.createElementNS(NS,'rect');r.setAttribute('width',NW);r.setAttribute('height',NH);r.setAttribute('rx','5');
+  const t=document.createElementNS(NS,'text');t.setAttribute('x',NW/2);t.setAttribute('y',NH/2+3);t.setAttribute('text-anchor','middle');
+  const gid=document.createElementNS(NS,'tspan');gid.setAttribute('class','gid');
+  g.appendChild(r);g.appendChild(t);t.textContent=n.label;
+  g.addEventListener('mouseenter',e=>highlight(n.id,e));g.addEventListener('mousemove',e=>moveTip(e));
+  g.addEventListener('mouseleave',clearHL);
+  svg.appendChild(g);nodeEls[n.id]=g;});
+ function highlight(id,e){
+  const ins=edges.filter(([a,b])=>b===id).map(([a])=>a);
+  const outs=edges.filter(([a,b])=>a===id).map(([,b])=>b);
+  const rel=new Set([id,...ins,...outs]);
+  Object.entries(nodeEls).forEach(([k,g])=>{g.classList.toggle('dim',!rel.has(k));g.classList.toggle('hot',k===id);});
+  edgeEls.forEach(p=>{const a=p.dataset.a,b=p.dataset.b;p.classList.remove('hot','in','out');
+   if(b===id)p.classList.add('in');else if(a===id)p.classList.add('out');});
+  const n=byId[id];tip.innerHTML=`<b>${n.label}</b><br>${n.tip}<br><span style="color:var(--teal)">prasyarat: ${ins.length?ins.join(', '):'—'}</span><br><span style="color:var(--rose)">dependen: ${outs.length?outs.join(', '):'—'}</span>`;
+  tip.style.opacity='1';moveTip(e);
+ }
+ function moveTip(e){const r=wrap.getBoundingClientRect();let x=e.clientX-r.left+14,y=e.clientY-r.top+14;
+  if(x>r.width-250)x=r.width-250;tip.style.left=x+'px';tip.style.top=y+'px';}
+ function clearHL(){Object.values(nodeEls).forEach(g=>{g.classList.remove('dim','hot');});edgeEls.forEach(p=>p.classList.remove('hot','in','out'));tip.style.opacity='0';}
+})();
+
+/* ===== §4 pipeline particle columns ===== */
+(function(){
+ const stages=[['BOOT','runtime'],['MARKET','snapshot'],['TRUTH','geometry'],['STRUCTURE','cage/wave'],['EVIDENCE','3-bus'],['CLONE','×3 ledger'],['TRADE','marker'],['STATISTICS','aggreg'],['KNOWLEDGE','academy…'],['PREDICTION','empiris'],['GOVERNANCE','3-rem'],['CONSUMER','opsional']];
+ const pipe=document.getElementById('pipe');
+ pipe.innerHTML=stages.map((s,i)=>`<div class="pcol"><div class="pbox"><span class="pk">${s[0]}</span>${s[1]}</div>${i<stages.length-1?'<div class="pconn"><i></i><i></i></div>':''}</div>`).join('');
+})();
+
+/* ===== §9 build graph phases ===== */
+(function(){
+ const ph=[
+  ['PHASE 0','Architecture Audit','Audit 19 domain + 82 komponen vs MASTER; petakan gap.','Doc01, MASTER'],
+  ['PHASE 1','Feature Validation','Tiap fitur konstitusi punya komponen & status FROZEN.','Doc01, MASTER§3'],
+  ['PHASE 2','Implementation Validation','15 hukum implementasi + platform-binding terverifikasi.','Doc02'],
+  ['PHASE 3','Architecture Validation','Workspace+runtime: writer serial, worker dingin, tiered storage.','Doc04, Doc05'],
+  ['PHASE 4','Pipeline Validation','22 tahap + jenis SHARED/PER-CLONE/ON-DEMAND; Card Sharing.','Doc06'],
+  ['PHASE 5','Knowledge Validation','Unidirectional; no-ML; vektor Oracle beku; HiveMind←evidence.','Doc08'],
+  ['PHASE 6','Simulation Validation','Adverse-first; fee berlapis; 4 jenis sim; persist serial.','Doc09'],
+  ['PHASE 7','Replay Validation','6 replay reproduktibel; resume checkpoint.','Doc10'],
+  ['PHASE 8','Governance Validation','6 validasi + 3 rem + rollback deterministik.','Doc11'],
+  ['PHASE 9','Blueprint Validation','Modul→thread→store lengkap; UI no-mock.','Doc12'],
+  ['PHASE 10','Implementation Plan Validation','S1–S15 menghormati dependensi §3/§4.','Doc13'],
+  ['PHASE 11','Build Approval','15 stop-rule PASS; tension RESOLVED.','Doc14'],
+  ['PHASE 12','Native HTML Implementation','Bangun F1–F14; tiap fase lolos gate HARD §10.','§8, MASTER']
+ ];
+ document.getElementById('phases').innerHTML=ph.map(p=>`<div class="phrow"><div class="phk"><div class="gd"></div><div class="pn">${p[0].split(' ')[1]}</div><div class="pt">${p[0].split(' ')[0]}</div></div><div class="phb"><h4>${p[1]}</h4><div class="d">${p[2]}</div><div class="tags"><span class="pill pb">ref ${p[3]}</span><span class="pill fz">gate HARD</span></div></div></div>`).join('');
+})();
+</script>
+</body>
+</html>

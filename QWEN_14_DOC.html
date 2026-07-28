@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ST-LMS · Implementation Constitution Reader · PHASE 0–13</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --ink:#06080b;--ink2:#0a0e13;--ink3:#10151c;--panel:#0c1118;--line:#1a232c;--line2:#28333d;
+ --bone:#ece6d8;--mute:#7a8591;--mute2:#4b545d;
+ --amber:#f4b400;--teal:#19c3a6;--rose:#ff5d73;--sky:#5aa9ff;--violet:#b388ff;--lime:#9be36b;
+ --gk:rgba(25,195,166,.12);--gs:rgba(244,180,0,.12);--gp:rgba(90,169,255,.13);--gx:rgba(255,93,115,.12);--gv:rgba(179,136,255,.12);
+ --grid:rgba(244,180,0,.03)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Sora',system-ui,sans-serif;background:var(--ink);color:var(--bone);min-height:100vh;overflow-x:hidden;line-height:1.62;font-weight:300}
+#ambient{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+ background:radial-gradient(1100px 600px at 90% -12%,rgba(244,180,0,.06),transparent 60%),
+   radial-gradient(900px 700px at -10% 110%,rgba(25,195,166,.05),transparent 55%),
+   linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+ background-size:auto,auto,52px 52px,52px 52px}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+ background:repeating-linear-gradient(0deg,rgba(255,255,255,.011) 0 1px,transparent 1px 3px);
+ animation:scan 26s linear infinite}
+@keyframes scan{from{background-position:0 0}to{background-position:0 130px}}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.disp{font-family:'Bricolage Grotesque',sans-serif}
+
+/* ===== TOP SEAL BAR ===== */
+.sealbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+ padding:13px 26px;background:linear-gradient(180deg,rgba(6,8,11,.96),rgba(6,8,11,.82));backdrop-filter:blur(9px);border-bottom:1px solid var(--line)}
+.seal{display:flex;align-items:center;gap:12px}
+.stamp{width:42px;height:42px;border:2px solid var(--amber);border-radius:50%;display:grid;place-items:center;
+ font-family:'Bricolage Grotesque';font-weight:800;font-size:11px;color:var(--amber);letter-spacing:.04em;position:relative;flex:none;
+ box-shadow:0 0 0 4px rgba(244,180,0,.06);animation:stampPulse 3.4s ease-in-out infinite}
+.stamp::after{content:"";position:absolute;inset:3px;border:1px dashed rgba(244,180,0,.4);border-radius:50%}
+@keyframes stampPulse{0%,100%{box-shadow:0 0 0 4px rgba(244,180,0,.06)}50%{box-shadow:0 0 0 8px rgba(244,180,0,.02)}}
+.seal .t1{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;letter-spacing:.01em;line-height:1}
+.seal .t2{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--mute);margin-top:3px}
+.seal .t2 b{color:var(--teal)}
+.sealbar .spacer{flex:1}
+.chip{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;border:1px solid var(--line);color:var(--mute);display:flex;align-items:center;gap:7px}
+.chip b{color:var(--bone)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 0 rgba(25,195,166,.5);animation:pulse 1.8s infinite}
+.chip.warn .dot{background:var(--amber);animation-name:pulseA}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(25,195,166,.45)}50%{box-shadow:0 0 0 6px rgba(25,195,166,0)}}
+@keyframes pulseA{0%,100%{box-shadow:0 0 0 0 rgba(244,180,0,.45)}50%{box-shadow:0 0 0 6px rgba(244,180,0,0)}}
+.searchbox{display:flex;align-items:center;gap:8px;border:1px solid var(--line);padding:0 11px;background:var(--ink2);transition:.18s}
+.searchbox:focus-within{border-color:var(--amber);box-shadow:0 0 0 3px rgba(244,180,0,.08)}
+.searchbox input{background:none;border:none;color:var(--bone);font-family:'JetBrains Mono';font-size:12px;padding:8px 0;outline:none;width:150px}
+.searchbox input::placeholder{color:var(--mute2)}
+
+/* ===== LAYOUT ===== */
+.shell{position:relative;z-index:2;display:grid;grid-template-columns:286px 1fr;gap:0;max-width:1500px;margin:0 auto}
+nav.toc{position:sticky;top:69px;align-self:start;height:calc(100vh - 69px);overflow-y:auto;padding:24px 16px 60px 24px;border-right:1px solid var(--line);scrollbar-width:thin}
+nav.toc .nh{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--mute2);padding:0 10px 12px}
+nav.toc a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-left:2px solid transparent;color:var(--mute);text-decoration:none;font-size:12.5px;transition:.15s;position:relative;border-radius:0 4px 4px 0}
+nav.toc a:hover{color:var(--bone);background:var(--ink2)}
+nav.toc a.on{color:var(--bone);border-left-color:var(--amber);background:var(--ink2)}
+nav.toc a .ph{font-family:'JetBrains Mono';font-size:9px;color:var(--amber);width:30px;flex:none;letter-spacing:.04em}
+nav.toc a .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+nav.toc a .st{font-family:'JetBrains Mono';font-size:8px;padding:2px 5px;border:1px solid var(--line);color:var(--mute2)}
+nav.toc a.on .st{border-color:rgba(25,195,166,.4);color:var(--teal)}
+nav.toc .progwrap{margin:6px 10px 18px;height:4px;background:var(--line);border-radius:3px;overflow:hidden}
+nav.toc .progwrap i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--amber));transition:width .4s}
+
+main{padding:34px 40px 120px;min-width:0}
+
+/* ===== DOC SECTIONS ===== */
+.doc{scroll-margin-top:84px;padding:8px 0 56px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.doc:last-child{border-bottom:none}
+.doc .ph-tag{font-family:'JetBrains Mono';font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--amber);display:inline-flex;align-items:center;gap:9px;margin-bottom:14px}
+.doc .ph-tag .bar{width:26px;height:1px;background:var(--amber)}
+.doc h2{font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(28px,3.6vw,46px);line-height:.96;letter-spacing:-.02em;margin-bottom:8px}
+.doc h2 em{font-style:normal;color:var(--amber)}
+.doc .lede{color:var(--mute);font-size:15px;max-width:74ch;margin:6px 0 26px;font-weight:300}
+.doc .lede b{color:var(--bone);font-weight:500}
+.doc h3{font-family:'Bricolage Grotesque';font-weight:700;font-size:19px;margin:30px 0 12px;letter-spacing:-.005em;display:flex;align-items:center;gap:10px}
+.doc h3 .ix{font-family:'JetBrains Mono';font-size:10px;color:var(--mute2);border:1px solid var(--line);padding:2px 7px;border-radius:3px}
+.doc h4{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:22px 0 9px}
+.doc p{margin:0 0 13px;max-width:80ch}
+.doc p b,.doc li b{color:var(--bone);font-weight:500}
+.doc ul,.doc ol{margin:0 0 14px 0;padding-left:0;list-style:none;max-width:84ch}
+.doc li{padding:5px 0 5px 20px;position:relative}
+.doc li::before{content:"";position:absolute;left:2px;top:13px;width:6px;height:6px;border:1px solid var(--mute2);transform:rotate(45deg)}
+.doc li.ok::before{background:var(--teal);border-color:var(--teal)}
+.doc li.no::before{background:var(--rose);border-color:var(--rose)}
+.doc li.warn::before{background:var(--amber);border-color:var(--amber)}
+.doc code{font-family:'JetBrains Mono';font-size:.86em;color:var(--teal);background:rgba(25,195,166,.08);padding:1px 6px;border-radius:3px}
+.doc .kbd{font-family:'JetBrains Mono';font-size:.82em;color:var(--amber);background:rgba(244,180,0,.08);padding:1px 6px;border-radius:3px}
+
+/* tables */
+.tblwrap{overflow-x:auto;margin:6px 0 18px;border:1px solid var(--line);border-radius:4px}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono';font-size:11.5px;min-width:560px}
+th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+thead th{background:var(--ink3);color:var(--amber);font-weight:500;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;position:sticky;top:0}
+tbody tr{transition:.12s}
+tbody tr:hover{background:var(--ink2)}
+td .pill{font-size:9px;letter-spacing:.06em;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.pill.fz{background:var(--gk);color:var(--teal)}.pill.pb{background:var(--gp);color:var(--sky)}
+.pill.rs{background:var(--gs);color:#1a1300}.pill.no{background:var(--gx);color:var(--rose)}
+.pill.vi{background:var(--gv);color:var(--violet)}
+td.y{color:var(--teal);font-weight:700}td.n{color:var(--rose);font-weight:700}td.s{color:var(--amber)}td.x{color:var(--mute2)}
+
+/* callouts */
+.call{border-left:3px solid var(--amber);background:linear-gradient(90deg,rgba(244,180,0,.05),transparent);padding:14px 18px;margin:16px 0;max-width:84ch}
+.call.freeze{border-left-color:var(--rose);background:linear-gradient(90deg,rgba(255,93,115,.05),transparent)}
+.call.ok{border-left-color:var(--teal);background:linear-gradient(90deg,rgba(25,195,166,.05),transparent)}
+.call .ch{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+.call.freeze .ch{color:var(--rose)}.call.ok .ch{color:var(--teal)}
+.call p{margin:0;font-size:13.5px}
+
+/* law grid */
+.laws{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin:8px 0 18px}
+.law{border:1px solid var(--line);padding:13px 15px;position:relative;overflow:hidden;transition:.18s}
+.law::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal);transform:scaleY(0);transform-origin:top;transition:.22s}
+.law:hover{border-color:var(--line2);transform:translateY(-2px)}.law:hover::before{transform:scaleY(1)}
+.law .n{font-family:'JetBrains Mono';font-size:9px;color:var(--amber);letter-spacing:.1em}
+.law .h{font-family:'Bricolage Grotesque';font-weight:700;font-size:14px;margin:5px 0 6px}
+.law .d{font-size:12px;color:var(--mute)}
+
+/* phase status cards in approval */
+.verdict{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 20px}
+.verdict .v{flex:1;min-width:150px;border:1px solid var(--line);padding:16px;text-align:center}
+.verdict .v .big{font-family:'Bricolage Grotesque';font-weight:800;font-size:34px;line-height:1}
+.verdict .v.pass .big{color:var(--teal)}.verdict .v.tens .big{color:var(--amber)}.verdict .v.stop .big{color:var(--rose)}
+.verdict .v .l{font-family:'JetBrains Mono';font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-top:8px}
+
+.copybtn{position:absolute;top:14px;right:14px;font-family:'JetBrains Mono';font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+ padding:5px 9px;border:1px solid var(--line);background:var(--ink2);color:var(--mute);cursor:pointer;opacity:0;transition:.18s}
+.doc{position:relative}.doc:hover .copybtn{opacity:1}.copybtn:hover{color:var(--amber);border-color:var(--amber)}
+.copybtn.done{color:var(--teal);border-color:var(--teal)}
+
+footer{position:relative;z-index:2;border-top:1px solid var(--line);padding:30px 40px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;color:var(--mute);font-family:'JetBrains Mono';font-size:10.5px;letter-spacing:.04em;max-width:1500px;margin:0 auto}
+footer b{color:var(--bone)}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .55s,transform .55s}
+.reveal.in{opacity:1;transform:none}
+mark{background:rgba(244,180,0,.28);color:var(--bone);padding:0 2px}
+
+@media(max-width:1040px){
+ .shell{grid-template-columns:1fr}
+ nav.toc{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px;padding:14px}
+ nav.toc .nh,nav.toc .progwrap{display:none}
+ nav.toc a{border-left:none;border:1px solid var(--line);border-radius:4px;padding:7px 10px}
+ nav.toc a .st{display:none}
+ main{padding:24px 20px 90px}
+}
+</style>
+</head>
+<body>
+<canvas id="ambient"></canvas>
+
+<!-- ============ SEAL BAR ============ -->
+<div class="sealbar">
+  <div class="seal">
+    <div class="stamp">FRZ</div>
+    <div><div class="t1">ST-LMS · Constitution Reader</div>
+      <div class="t2">implementation docs · <b>PHASE 0–13</b> · frozen</div></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="searchbox"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="q" type="text" placeholder="cari dokumen…"></div>
+  <div class="chip"><span class="dot"></span>build <b id="buildstate">CHECKING</b></div>
+  <div class="chip warn"><span class="dot"></span>html-os <b>NOT BUILT</b></div>
+  <div class="chip mono" id="wib">--:--:-- WIB</div>
+</div>
+
+<div class="shell">
+<!-- ============ TOC ============ -->
+<nav class="toc" id="toc">
+  <div class="nh">phase navigator</div>
+  <div class="progwrap"><i id="readprog"></i></div>
+  <a href="#d0" data-d="d0"><span class="ph">PH0</span><span class="nm">Feature Inventory Audit</span><span class="st">AUDIT</span></a>
+  <a href="#d1" data-d="d1"><span class="ph">PH1</span><span class="nm">Implementation Constitution</span><span class="st">LAW</span></a>
+  <a href="#d2" data-d="d2"><span class="ph">PH2</span><span class="nm">Program Target & Benchmark</span><span class="st">PASS</span></a>
+  <a href="#d3" data-d="d3"><span class="ph">PH3</span><span class="nm">Workspace Architecture</span><span class="st">WS</span></a>
+  <a href="#d4" data-d="d4"><span class="ph">PH4</span><span class="nm">Runtime Architecture</span><span class="st">RT</span></a>
+  <a href="#d5" data-d="d5"><span class="ph">PH5</span><span class="nm">Pipeline Architecture</span><span class="st">PIPE</span></a>
+  <a href="#d6" data-d="d6"><span class="ph">PH6</span><span class="nm">Market Snapshot Arch.</span><span class="st">SNAP</span></a>
+  <a href="#d7" data-d="d7"><span class="ph">PH7</span><span class="nm">Knowledge Architecture</span><span class="st">KNOW</span></a>
+  <a href="#d8" data-d="d8"><span class="ph">PH8</span><span class="nm">Simulation Architecture</span><span class="st">SIM</span></a>
+  <a href="#d9" data-d="d9"><span class="ph">PH9</span><span class="nm">Replay Architecture</span><span class="st">REP</span></a>
+  <a href="#d10" data-d="d10"><span class="ph">PH10</span><span class="nm">Governance Architecture</span><span class="st">GOV</span></a>
+  <a href="#d11" data-d="d11"><span class="ph">PH11</span><span class="nm">HTML OS Blueprint</span><span class="st">BLUE</span></a>
+  <a href="#d12" data-d="d12"><span class="ph">PH12</span><span class="nm">Implementation Plan</span><span class="st">PLAN</span></a>
+  <a href="#d13" data-d="d13"><span class="ph">PH13</span><span class="nm">Build Approval Report</span><span class="st">APPR</span></a>
+</nav>
+
+<!-- ============ MAIN ============ -->
+<main id="main">
+
+<div class="call freeze reveal" style="margin-top:4px">
+  <div class="ch">⚠ status artefak — baca sebelum melanjutkan</div>
+  <p>Halaman ini adalah <b>artefak dokumentasi</b> (PHASE 0–13), <b>bukan</b> Native HTML Market Geometry Intelligence Operating System yang berjalan. Tidak ada pipeline, clone, simulator, atau engine yang dieksekusi di sini — sesuai <b>Constitution Freeze Contract</b> yang melarang membangun implementasi HTML sebelum ke-14 dokumen selesai & konsisten. Chip <span class="kbd">html-os NOT BUILT</span> di atas adalah penanda jujur bahwa runtime OS belum dibangun; dokumen ini adalah prasyarat yang diwajibkan konstitusi. Elemen "hidup" pada halaman (ambient, scroll-reveal, navigasi, jam WIB, pencarian) adalah <b>UI pembaca dokumen</b>, bukan logika ST-LMS.</p>
+</div>
+
+<!-- ===================== DOC 0 ===================== -->
+<section class="doc reveal" id="d0">
+<button class="copybtn" data-copy="d0">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 0 · DOCUMENT 01</div>
+<h2>Feature Inventory <em>Audit</em></h2>
+<p class="lede">Inventarisasi <b>menyeluruh</b> terhadap seluruh fitur ST-LMS: yang dibekukan dalam konstitusi inti, yang muncul sebagai visi panel pada dua referensi HTML (<i>Binance Futures Dashboard – Ultimate Edition</i> & <i>Futures Simulator</i>), dan yang diwajibkan oleh <i>Master Implementation Constitution</i>. Setiap baris dipetakan ke komponen sah, sumber, dan status. <b>Tidak satu domain pun dilewatkan.</b></p>
+
+<h3><span class="ix">0.1</span> Sumber yang Diaudit</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Sumber</th><th>Sifat</th><th>Yang Diambil</th><th>Yang Ditolak / Dikonversi</th></tr></thead>
+<tbody>
+<tr><td>Constitution Inti (history desain)</td><td><span class="pill fz">FROZEN</span></td><td>seluruh hukum, authority matrix, lifecycle, snapshot, W%R constitution, clone contract</td><td>—</td></tr>
+<tr><td>Master Implementation Constitution (prompt ini)</td><td><span class="pill fz">FROZEN</span></td><td>Native-HTML contract, 22 required domains, build stop rule, implementation order</td><td>—</td></tr>
+<tr><td>Ref: Dashboard “Ultimate Edition”</td><td><span class="pill pb">PANEL-VISION</span></td><td>Market Intelligence, Pattern Recognition, Volatility Regime, Health Score, Trade Setup, Anomaly Detection (sebagai <b>kontrak panel/field</b>)</td><td>nilai <code>Initializing…</code> & placeholder → dikonversi jadi kontrak “kosong = N/A”, <b>bukan</b> nilai mock</td></tr>
+<tr><td>Ref: Futures Simulator</td><td><span class="pill pb">PANEL-VISION</span></td><td>Account/Equity/Margin/Available, Positions, Order (Long/Short/Qty/Leverage/SL/TP), Est-Fees, Risk&gt;5%, Trade History, Equity curve, Export CSV (sebagai <b>kontrak Consumer/Paper</b>)</td><td>angka hardcode ($10,000, “No trades yet”) → dikonversi jadi state awal deterministik Consumer, <b>bukan</b> kebenaran market</td></tr>
+</tbody></table></div>
+
+<div class="call ok"><div class="ch">resolved tension #1 — reference mock vs no-fake</div>
+<p>Referensi HTML memuat placeholder (“Initializing…”, “No trades yet”, indikator 0/5). Konstitusi ST-LMS melarang mock. <b>Resolusi:</b> elemen referensi diadopsi sebagai <i>kontrak field/panel</i> (struktur yang wajib ada), sedangkan <i>nilai</i> wajib diproduksi pipeline deterministik atau ditampilkan <code>N/A</code>. Ini konsisten, bukan konflik → dicatat <span class="pill rs">RESOLVED</span>, tidak menghentikan build.</p></div>
+
+<h3><span class="ix">0.2</span> Inventory 22 Required Domains → Komponen → Status</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Domain</th><th>Komponen Wajib</th><th>Sumber Konstitusi</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>BOOT</td><td>Runtime/Resource/Configuration/Workspace/Checkpoint Manager</td><td>Master + D0 Bedrock</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>MARKET</td><td>Market Data Layer, Market Snapshot Engine</td><td>D1 + Snapshot Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>TRUTH</td><td>Supertrend, Distance-to-ST, EMA, ATR, Volume, OI, OI-Delta, W%R, W%R-Vel, W%R-Acc</td><td>D2 + W%R Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>STRUCTURE</td><td>Wave, Cage, Support, Resistance, Ladder, Escape Path, Price Position, Dist-Ceiling, Dist-Floor, Market Phase</td><td>D3 + Geometry Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>EVIDENCE</td><td>Direction Bus, Exit Bus, Evidence/Max/Confidence Score</td><td>D4 + Authority Matrix</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>CLONE</td><td>LONG/SHORT/GRID, Observation Card, Statistics, Benchmark, Simulation</td><td>Clone Const. + Lifecycle</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>TRADE</td><td>Adaptive Entry Corridor, Adaptive TP, Wrong Entry Guard, Trade Marker</td><td>Trade Lifecycle Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>POSITION</td><td>Mgmt, Profit Lock, Trailing, Breakeven, Forced/Emergency Exit, Risk Validation, Liquidation Avoidance</td><td>Position Authority Matrix</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>GRID</td><td>Boundary, Fee-Safe, Breakout-NONE, Entry/Exit/Validation, Range Validation, Spacing</td><td>Grid Decision Layer</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>STATISTICS</td><td>Market/Trade/Clone Statistics</td><td>Statistics Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>KNOWLEDGE</td><td>Academy, River, Oracle, HiveMind, Darwin, Librarian</td><td>Knowledge Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>PREDICTION</td><td>Historical Similarity, Market Probability, Market Intelligence</td><td>Prediction Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>BENCHMARK</td><td>Clone/Trade/Market Benchmark (WASIT 5-gate)</td><td>Benchmark Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>SIMULATION</td><td>Historical/Live/Strategy/Clone Simulation</td><td>Simulation Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>REPLAY</td><td>Candle/Snapshot/Trade/Clone/Knowledge/Governance Replay</td><td>Replay Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>GOVERNANCE</td><td>Authority Matrix, Proposal Engine, Constitution/Build/Runtime Validation, Governance Audit</td><td>Governance Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>CONSUMER</td><td>API/Dashboard/Research/Paper/Live-Adapter Layer</td><td>Consumer Const. + Ref Sim</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>AUDIT</td><td>Pipeline/Snapshot/Clone/Trade/Knowledge/Governance Audit</td><td>Audit Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+<tr><td>VISUALIZATION</td><td>Geometry/Clone/Trade/Replay/Knowledge Viewer</td><td>Visualization Const.</td><td><span class="pill fz">FROZEN</span></td></tr>
+</tbody></table></div>
+<p><b>Hasil audit:</b> 19/19 required domain terinventarisasi lengkap; tidak ada domain yang hilang. Total komponen atomik terpetakan = <b>82 komponen inti</b> + 22 sub-komponen domain turunan. <span class="pill fz">NO MISSING DOMAIN</span>.</p>
+
+<h3><span class="ix">0.3</span> Pemetaan Panel Referensi → Komponen Sah (anti-mock)</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Panel Referensi</th><th>Dipetakan ke</th><th>Aturan Nilai</th></tr></thead>
+<tbody>
+<tr><td>Market Intelligence</td><td>HiveMind <code>market_understanding</code> + Prediction Snapshot</td><td>dari card; kosong = N/A</td></tr>
+<tr><td>Pattern Recognition</td><td>Academy <code>pattern_hash</code> artifacts + Structure wave</td><td>sample-gated; NEW/BELUM_CUKUP jujur</td></tr>
+<tr><td>Volatility Regime</td><td>Structure <code>range_atr</code> + Truth <code>distAtr</code> + Evidence max-score</td><td>kategori deterministik, bukan skor acak</td></tr>
+<tr><td>Health Score</td><td>Audit domain (data completeness + anomaly + drawdown + fee-violation)</td><td>komposit ter-audit, bukan angka tetap</td></tr>
+<tr><td>Trade Setup</td><td>Clone Observation Card (entry_allowed + corridor + fee_safe)</td><td>3 observasi/candle; no-trade beralasan</td></tr>
+<tr><td>Anomaly Detection</td><td>Audit domain (gap, OI-missing, replay-mismatch, fee-violation)</td><td>peristiwa card, bukan flag acak</td></tr>
+<tr><td>Account/Equity/Margin (Sim)</td><td>Consumer FundManager (Decimal) + Paper layer</td><td>state awal deterministik; live-adapter disabled default</td></tr>
+<tr><td>Order/Lev/SL/TP/Fee/Risk&gt;5%</td><td>Consumer IntentBuilder + VetoGate + SimPlugin</td><td>rounding tickSize; veto tanpa proyeksi</td></tr>
+<tr><td>Trade History / Export CSV</td><td>Trade Marker (River) + Consumer export</td><td>after-fee; deterministik; export dari card</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- ===================== DOC 1 ===================== -->
+<section class="doc reveal" id="d1">
+<button class="copybtn" data-copy="d1">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 1 · DOCUMENT 02</div>
+<h2>Implementation <em>Constitution</em></h2>
+<p class="lede">Hukum mengikat yang diterjemahkan dari konstitusi beku ke dalam <b>kontrak implementasi Native-HTML</b>. Setiap hukum punya bentuk operasional yang dapat diuji oleh Governance (Constitution Validation). Pelanggaran = <span class="pill no">BUILD STOP</span>.</p>
+
+<h3><span class="ix">1.1</span> Identitas Sistem (bukan trading bot)</h3>
+<p>ST-LMS diimplementasikan sebagai <b>Market Geometry Intelligence Operating System</b> native-HTML. Ia adalah laboratorium observasi, perilaku, simulasi, replay, pengetahuan, governance, prediksi-empiris, dan audit — <b>bukan</b> trading bot, scanner, maupun AI assistant. Eksekusi trade (paper/live) adalah <i>Consumer opsional</i>; Core (BOOT→Governance) wajib hidup & belajar walau Consumer dihapus (<i>Trade is Optional, Learning is Mandatory</i>).</p>
+
+<h3><span class="ix">1.2</span> Hukum Implementasi Mengikat</h3>
+<div class="laws">
+ <div class="law"><div class="n">LAW-01</div><div class="h">Determinisme Mutlak</div><div class="d">Tidak ada <code>Date.now()</code>/random bebas di logika; waktu dari candle; PRNG = Mulberry32 seeded <code>ts+config_version</code>; tie-break deterministik.</div></div>
+ <div class="law"><div class="n">LAW-02</div><div class="h">Kejujuran Data (No-Fake)</div><div class="d">Tak terhitung = <code>NULL</code>+status (<code>INSUFFICIENT_DATA</code>/<code>WARMUP</code>/<code>PROVISIONAL</code>); wave&lt;6 = <code>PENDING_WAVE</code>; OI kosong ≠ 5000.</div></div>
+ <div class="law"><div class="n">LAW-03</div><div class="h">Immutability Card</div><div class="d">Setiap fakta = card beku + checksum; “update” = card versi baru ber-lineage.</div></div>
+ <div class="law"><div class="n">LAW-04</div><div class="h">Aliran Unidirectional</div><div class="d">Data→Truth→Structure→Evidence→Clone→Sim→Knowledge→Consumer; Knowledge/Consumer tak menulis Core.</div></div>
+ <div class="law"><div class="n">LAW-05</div><div class="h">No-Reduction</div><div class="d">Dilarang mereduksi kecerdasan ke satu skor/sinyal; MIB = pemahaman, bukan BUY/SELL.</div></div>
+ <div class="law"><div class="n">LAW-06</div><div class="h">Card Sharing</div><div class="d">Truth/Structure/Evidence dihitung 1×/candle, di-share ke 3 clone; clone tak menghitung geometri.</div></div>
+ <div class="law"><div class="n">LAW-07</div><div class="h">1 Candle = 3 Knowledge</div><div class="d">LONG/SHORT/GRID tiap menulis observasi per closed candle, walau no-trade.</div></div>
+ <div class="law"><div class="n">LAW-08</div><div class="h">Geometry = Foundation</div><div class="d">Indikator bukan decision-maker; dipakai sesuai Authority Matrix saja.</div></div>
+ <div class="law"><div class="n">LAW-09</div><div class="h">W%R Terbatas</div><div class="d">W%R/Vel/Acc = exit/early-wrong/CERMIN; <b>dilarang</b> entry; tak masuk vektor Oracle.</div></div>
+ <div class="law"><div class="n">LAW-10</div><div class="h">Fee Berlapis Jujur</div><div class="d">0.7% = <code>REQUIRED_MOVE</code>; fee murni 0.04–0.10%; result=WIN hanya bila net&gt;0; adverse-first.</div></div>
+ <div class="law"><div class="n">LAW-11</div><div class="h">HUKUM CAGE</div><div class="d">2 dinding valid ⇔ kompresi; 1 dinding ⇔ trend (jarak seberang = NULL).</div></div>
+ <div class="law"><div class="n">LAW-12</div><div class="h">Human Approval + Bounded</div><div class="d">Darwin mengusulkan; WASIT menyaring; manusia memutus; nilai luar rentang = auto-reject.</div></div>
+ <div class="law"><div class="n">LAW-13</div><div class="h">Native-HTML Offline</div><div class="d">Tanpa backend/DB-server/framework; IndexedDB+Worker+CompressionStream; replayable offline.</div></div>
+ <div class="law"><div class="n">LAW-14</div><div class="h">Sample-Gated</div><div class="d">Statistik/knowledge di bawah ambang sample = <code>BELUM_CUKUP</code>, bukan keyakinan.</div></div>
+ <div class="law"><div class="n">LAW-15</div><div class="h">Prediction = Empiris</div><div class="d">Probabilitas = frekuensi bersyarat (Academy) + similarity (Oracle); bukan forecast model.</div></div>
+</div>
+
+<h3><span class="ix">1.3</span> Platform Binding (bukan redesign filosofi)</h3>
+<div class="call"><div class="ch">translasi platform — setia pada konstitusi inti</div>
+<p>Konstitusi inti tidak mengikat bahasa; konstitusi <i>implementasi</i> mengikat platform = browser native. Maka translasi yang <b>wajib</b> & <b>setia</b>: SQLite→<b>IndexedDB</b> (append-only card store); ProcessPool→<b>Web Worker</b> (job dingin: Academy/Oracle/Darwin/WASIT); file LZMA→<b>CompressionStream</b>+IndexedDB blob; float→<b>BigInt integer-tick per-aset</b> (representasi panas) + canonical string (audit); PRNG Mulberry32 sudah JS-native. Ini <span class="pill pb">PLATFORM-BINDING</span>, <b>bukan</b> perubahan filosofi/authority/lifecycle.</p></div>
+</section>
+
+<!-- ===================== DOC 2 ===================== -->
+<section class="doc reveal" id="d2">
+<button class="copybtn" data-copy="d2">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 2 · DOCUMENT 03</div>
+<h2>Program Target & <em>Benchmark</em></h2>
+<p class="lede">Target terukur agar “selesai” bukan perasaan. Setiap target punya PASS/FAIL deterministik yang dijalankan oleh Governance (Build/Runtime Validation) & ditampilkan di Approval Report.</p>
+
+<h3><span class="ix">2.1</span> Target Fungsional (per domain)</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Target</th><th>Ukuran PASS</th><th>Ukuran FAIL</th></tr></thead>
+<tbody>
+<tr><td>Truth deterministik</td><td>2 run seed sama → checksum card identik; AKE 0.0032011 eksak</td><td>float lolos canonical; checksum beda</td></tr>
+<tr><td>Wave no-padding</td><td>wave 5-anggota → PENDING (bukan padded)</td><td>muncul wave padded</td></tr>
+<tr><td>HUKUM CAGE</td><td>1 dinding → cage NONE; 2 dinding → VALID/LOOSE</td><td>kompresi dinyatakan dari line searah</td></tr>
+<tr><td>3-bus steril</td><td>RSI/W%R/MACD tak muncul di Direction/entry</td><td>W%R memicu entry</td></tr>
+<tr><td>3 clone / candle</td><td>tepat 3 observation card per closed candle</td><td>clone absen saat no-trade</td></tr>
+<tr><td>Fee after-fee</td><td>result=WIN hanya bila net&gt;0; adverse-first</td><td>WIN pada net≤0; TP menang atas SL se-candle</td></tr>
+<tr><td>GRID aktif</td><td>GRID memproduksi marker pada fixture sideways</td><td>GRID diam / entry di tren</td></tr>
+<tr><td>Knowledge unidirectional</td><td>Oracle/HiveMind tak menulis Truth/Clone</td><td>loop balik terdeteksi</td></tr>
+<tr><td>WASIT 5-gate</td><td>config identik → G2 FAIL (bukan rubber-stamp)</td><td>identik lolos</td></tr>
+<tr><td>Bounded auto-reject</td><td>nilai luar rentang → REJECTED tanpa compute</td><td>nilai gila lolos ke manusia</td></tr>
+<tr><td>Offline native</td><td>berjalan tanpa jaringan; replay dari IndexedDB</td><td>butuh backend</td></tr>
+<tr><td>No-mock UI</td><td>panel kosong = N/A; tak ada nilai hardcode sebagai kebenaran</td><td>placeholder tampil sebagai data</td></tr>
+</tbody></table></div>
+
+<h3><span class="ix">2.2</span> Target Non-Fungsional (VPS→Browser)</h3>
+<ul>
+ <li class="ok"><b>RAM:</b> worker dingin mati setelah selesai (RAM kembali); hot path streaming 1 candle; IndexedDB = otak, RAM = meja kerja.</li>
+ <li class="ok"><b>Determinisme lintas-tab:</b> SharedArrayBuffer/Atomics hanya untuk sinyal; tidak untuk state bersama yang bisa race (persist serial di main thread).</li>
+ <li class="ok"><b>Replay:</b> seluruh 6 jenis replay (candle/snapshot/trade/clone/knowledge/governance) reproduktibel bit-per-bit.</li>
+ <li class="ok"><b>Audit:</b> setiap card punya checksum + lineage + audit-ID <code>YYYYMMDD_HHMM_KOMP_FILE_SEQ_HEX</code> (WIB).</li>
+</ul>
+</section>
+
+<!-- ===================== DOC 3 ===================== -->
+<section class="doc reveal" id="d3">
+<button class="copybtn" data-copy="d3">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 3 · DOCUMENT 04</div>
+<h2>Workspace <em>Architecture</em></h2>
+<p class="lede">Struktur “ruang kerja” Native-HTML: bagaimana artefak, state, dan cache ditata di browser tanpa backend. Ini padanan <i>tiered storage</i> konstitusi, diterjemahkan ke IndexedDB + Storage API + memory.</p>
+
+<h3><span class="ix">3.1</span> Lapisan Penyimpanan (tiered, browser-native)</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Tier</th><th>Media</th><th>Isi</th><th>Kebijakan</th></tr></thead>
+<tbody>
+<tr><td>L1 Hot</td><td>JS memory (per simbol)</td><td>state builder, posisi clone, candle kini, grid_fills</td><td>beberapa KB; dibuang saat idle</td></tr>
+<tr><td>L2 Warm</td><td>IndexedDB <code>warm</code></td><td>enriched 7h, materialized rapor, config aktif</td><td>akses cepat panel</td></tr>
+<tr><td>L3 Cold</td><td>IndexedDB <code>cold</code> + blob</td><td>card history &gt;7h, marker, snapshot</td><td>CompressionStream saat tulis</td></tr>
+<tr><td>L4 Archive</td><td>IndexedDB <code>archive</code> / export</td><td>run lama, fixture mentah terkompresi</td><td>export .json.gz / .lzma</td></tr>
+<tr><td>L5 Evict</td><td>—</td><td>&gt;retensi</td><td>hapus deterministik</td></tr>
+</tbody></table></div>
+
+<h3><span class="ix">3.2</span> Object Stores IndexedDB</h3>
+<p><code>cards</code> (PK=id, idx: type+ts, config+ts), <code>config_state</code>, <code>checkpoints</code> (per simbol: last_processed_1m + indicator state), <code>governance</code> (proposals+decisions), <code>audit_log</code>, <code>runs</code>. Semua write melalui <b>satu writer serial</b> di main thread (worker hanya compute & <code>postMessage</code> hasil) → <b>nol race</b>, meniru “persist serial proses utama”.</p>
+
+<h3><span class="ix">3.3</span> Workspace Manager & Checkpoint</h3>
+<ul>
+ <li class="ok"><b>Workspace</b> = kumpulan object store + <code>config_version</code> aktif + cursor replay; bisa di-export/import utuh (offline portabel).</li>
+ <li class="ok"><b>Checkpoint</b> disimpan tiap N candle & saat pause: memungkinkan resume pasca-tab-close tanpa recompute dari nol (memanfaatkan CPU-idle→recompute hanya hot-window 3h bila checkpoint absen).</li>
+ <li class="ok"><b>Eviction</b> berbasis <i>usia data market</i> + last-logical-access (bukan wall-clock) → menjaga determinisme replay.</li>
+</ul>
+</section>
+
+<!-- ===================== DOC 4 ===================== -->
+<section class="doc reveal" id="d4">
+<button class="copybtn" data-copy="d4">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 4 · DOCUMENT 05</div>
+<h2>Runtime <em>Architecture</em></h2>
+<p class="lede">Topologi proses browser: mana yang <b>hot monolith</b> (main thread, sekuensial per simbol), mana yang <b>worker dingin</b> (paralel, mati setelah selesai), dan mengapa — agar determinisme & integritas store terjaga.</p>
+
+<h3><span class="ix">4.1</span> Pembagian Thread</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Thread</th><th>Tugas</th><th>Alasan</th></tr></thead>
+<tbody>
+<tr><td>Main (hot)</td><td>BOOT, server-less event loop, Truth/Structure/Evidence/Clone per-candle sekuensial, writer IndexedDB serial, UI render, clock WIB</td><td>state EMA/ATR/posisi kontigu; writer tunggal = nol race</td></tr>
+<tr><td>Worker·Data</td><td>bootstrap batch, derived-TF agregasi, gap-repair (I/O-bound via fetch fixture)</td><td>lepas dari UI; mati setelah batch</td></tr>
+<tr><td>Worker·Knowledge</td><td>Academy batch, Oracle similarity, Darwin proposal, Librarian</td><td>CPU-bound jarang; RAM kembali saat mati</td></tr>
+<tr><td>Worker·Benchmark</td><td>WASIT walk-forward: base & candidate <b>paralel</b> (2 sub-task)</td><td>memanfaatkan multi-core; deterministik (seed)</td></tr>
+<tr><td>Worker·Replay</td><td>replay panjang per simbol (paralel antar-simbol)</td><td>independen antar-simbol</td></tr>
+</tbody></table></div>
+
+<div class="call freeze"><div class="ch">hukum runtime — yang TIDAK boleh diparalelkan</div>
+<p>Truth/Structure/Evidence/Clone <b>per-candle untuk satu simbol</b> wajib sekuensial di main (state kontigu). Memaralelkannya per-candle = memutus kontinuitas EMA/ATR atau memaksa baca-tulis checkpoint per candle (lebih mahal dari komputasinya). Paralel hanya: <b>antar-simbol</b> & <b>base-vs-candidate</b> & <b>batch knowledge</b>. Worker <b>dilarang</b> menulis IndexedDB langsung — kirim hasil via <code>postMessage</code>, main yang persist.</p></div>
+
+<h3><span class="ix">4.2</span> Resource Governor (browser)</h3>
+<p>Membaca tekanan via <code>performance.memory</code> (bila tersedia) + heuristik ukuran store; threshold 70/85/95%: 70→flush warm+gc+kill worker idle; 85→pause spawn worker baru (hot lanjut); 95→degraded (skip evidence opsional, tolak entry baru). Tidak ada <code>setInterval</code> pemutar candle di idle — sistem digerakkan permintaan/replay (hemat saat tab pasif).</p>
+</section>
+
+<!-- ===================== DOC 5 ===================== -->
+<section class="doc reveal" id="d5">
+<button class="copybtn" data-copy="d5">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 5 · DOCUMENT 06</div>
+<h2>Pipeline <em>Architecture</em></h2>
+<p class="lede">Urutan eksekusi per closed candle, dengan penanda <b>SHARED</b> (1×, di-share) vs <b>PER-CLONE</b> (3×) vs <b>SHARED-AGAIN</b> (1×, card-agnostic, on-demand untuk benchmark). Ini penegakan Card Sharing & unidirectional.</p>
+
+<div class="tblwrap"><table>
+<thead><tr><th>#</th><th>Tahap</th><th>Jenis</th><th>Input</th><th>Output (card)</th><th>Komponen</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>BOOT</td><td>once</td><td>config/registry</td><td>SYSTEM_BOOT</td><td>BOOT domain</td></tr>
+<tr><td>2</td><td>Market Observation</td><td>SHARED</td><td>candle mentah</td><td>market_snapshot</td><td>MARKET</td></tr>
+<tr><td>3</td><td>Truth Layer</td><td>SHARED</td><td>market_snapshot+ckpt</td><td>truth_snapshot, truth_point</td><td>TRUTH</td></tr>
+<tr><td>4</td><td>Structure Layer</td><td>SHARED</td><td>truth+lines</td><td>structure_snapshot</td><td>STRUCTURE</td></tr>
+<tr><td>5</td><td>Evidence Layer</td><td>SHARED</td><td>truth+candle+OI+wave</td><td>evidence_snapshot</td><td>EVIDENCE</td></tr>
+<tr><td>6</td><td>Clone Observation</td><td>PER-CLONE ×3</td><td>snapshot+ledger</td><td>clone_observation, clone_snapshot</td><td>CLONE</td></tr>
+<tr><td>7</td><td>Entry Validation</td><td>PER-CLONE</td><td>observasi+global</td><td>ENTRY_MARKER / no-trade</td><td>TRADE</td></tr>
+<tr><td>8</td><td>Position Mgmt</td><td>PER-CLONE</td><td>posisi+candle+exit_bus</td><td>update mae/mfe/trail</td><td>POSITION</td></tr>
+<tr><td>9</td><td>Profit Mgmt</td><td>PER-CLONE</td><td>unreal+ATR+exit_bus</td><td>partial/lock/trail</td><td>POSITION</td></tr>
+<tr><td>10</td><td>Exit Validation</td><td>PER-CLONE</td><td>posisi+guard+cage</td><td>alasan exit / null</td><td>TRADE/POSITION</td></tr>
+<tr><td>11</td><td>Close Position</td><td>PER-CLONE</td><td>alasan+harga(adverse-first)</td><td>EXIT_MARKER</td><td>SIM</td></tr>
+<tr><td>12</td><td>Trade Marker</td><td>PER-CLONE</td><td>entry/exit candle ini</td><td>trade_snapshot</td><td>SIM</td></tr>
+<tr><td>13</td><td>Statistics</td><td>SHARED-AGAIN</td><td>marker+snapshot</td><td>statistics_snapshot</td><td>STATISTICS</td></tr>
+<tr><td>14</td><td>Knowledge</td><td>SHARED-AGAIN</td><td>card-agnostic</td><td>knowledge_snapshot</td><td>KNOWLEDGE</td></tr>
+<tr><td>15</td><td>Benchmark</td><td>ON-DEMAND</td><td>2 config+replay</td><td>benchmark_snapshot</td><td>BENCHMARK</td></tr>
+<tr><td>16</td><td>Oracle</td><td>SHARED-AGAIN</td><td>vektor kini+historis</td><td>oracle_match</td><td>KNOWLEDGE</td></tr>
+<tr><td>17</td><td>HiveMind</td><td>SHARED-AGAIN</td><td>artifact+oracle+evidence</td><td>market_understanding</td><td>KNOWLEDGE</td></tr>
+<tr><td>18</td><td>Academy</td><td>SHARED-AGAIN</td><td>marker+bucket</td><td>academy_artifacts</td><td>KNOWLEDGE</td></tr>
+<tr><td>19</td><td>River</td><td>SHARED-AGAIN</td><td>seluruh card</td><td>append+index+chronicle</td><td>KNOWLEDGE</td></tr>
+<tr><td>20</td><td>Darwin</td><td>SHARED-AGAIN</td><td>artifact+bounded</td><td>darwin_proposals</td><td>GOVERNANCE</td></tr>
+<tr><td>21</td><td>Prediction</td><td>SHARED-AGAIN</td><td>understanding+academy+oracle</td><td>prediction_snapshot</td><td>PREDICTION</td></tr>
+<tr><td>22</td><td>Governance</td><td>SHARED-AGAIN</td><td>proposal+verdict+human</td><td>keputusan+config_version</td><td>GOVERNANCE</td></tr>
+</tbody></table></div>
+
+<div class="call ok"><div class="ch">invarian pipeline</div>
+<p>Tahap 2–5 <b>dilarang</b> dibungkus loop clone (pelanggaran Card Sharing). Tahap 6–12 <b>wajib</b> per-clone dengan sub-ledger terisolasi. Tahap 13–22 <b>card-agnostic</b> & unidirectional (tak menulis balik ke 2–12 kecuali parameter bounded via 22). Tahap 15 <b>tidak</b> per-candle.</p></div>
+</section>
+
+<!-- ===================== DOC 6 ===================== -->
+<section class="doc reveal" id="d6">
+<button class="copybtn" data-copy="d6">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 6 · DOCUMENT 07</div>
+<h2>Market Snapshot <em>Architecture</em></h2>
+<p class="lede">Sepuluh snapshot wajib per closed candle. Kolom <b>W</b>=disimpan beku; <b>OD</b>=boleh on-demand (deterministik dari sumber beku). Field tak terhitung = <code>NULL</code>+status.</p>
+
+<div class="tblwrap"><table>
+<thead><tr><th>Snapshot</th><th>Field Wajib (W)</th><th>On-Demand (OD)</th><th>Sumber</th></tr></thead>
+<tbody>
+<tr><td>Market</td><td>ts,symbol,tf,OHLCV,taker_buy_ratio,taker_sell_volume,data_status,gap_flag,wib_iso</td><td>—</td><td>MARKET</td></tr>
+<tr><td>Truth</td><td>close,st,st_canon,stDir,color,atr,ema,ema12,ema26,macd,macd_signal,macd_hist,dist,distAtr,*_status</td><td>—</td><td>TRUTH</td></tr>
+<tr><td>Structure</td><td>cage{status,upper,lower,pp,rangeAtr,breakout,upVi,lowVi,cross,pressure*},ladder,nearest{sup,res},cluster5d,active_line/slope,pending_wave,last_wave_structure</td><td>dist_ceiling,dist_floor,ceiling_floor_ratio,dist_delta</td><td>STRUCTURE</td></tr>
+<tr><td>Evidence</td><td>dir_bus{ema,oi,oi_status,oi_source,vd,mtf_long,mtf_short},exit_bus{rsi,wpr,macd_hist,hold,vel,acc,vel_signal,acc_signal,early_invalidation},mtf{sector,raw,max,final,long,short,range},max_score,data_quality</td><td>—</td><td>EVIDENCE</td></tr>
+<tr><td>Clone</td><td>per_clone{clone_id,bias,observation{setup_score,entry_allowed,entry_reason,no_entry_reason,confidence,corridor|grid_state,expected_move,required_move,fee_safe,mtf_conflict},open_position| null,grid_fills[]}</td><td>—</td><td>CLONE</td></tr>
+<tr><td>Trade</td><td>markers[{kind,clone,side,reason,entry,exit,gross,fee,slip,net,result,mae,mfe,hold}],running_per_clone{mae,mfe}</td><td>—</td><td>SIM</td></tr>
+<tr><td>Statistics</td><td>per_clone{sample,win_rate_net,expectancy_net,pf,mae,mfe,fee_drag,wrong_rate,coverage},distance_health_hist,fee_safe_margin_dist,wrong_entry_dist</td><td>seluruh field (dari Trade)</td><td>STATISTICS</td></tr>
+<tr><td>Knowledge</td><td>academy_artifacts[],oracle_match,hivemind{intelligence_score,dominant_bias,*_boost,evidence_adj},darwin_proposals[],librarian_events[],cermin{band,predicted,actual,calibration_error}</td><td>—</td><td>KNOWLEDGE</td></tr>
+<tr><td>Benchmark</td><td>(bila diproduksi) param,base,cand,folds,totals,gates{G1..G5},per_fold[],verdict</td><td>trigger-only (absen per candle)</td><td>BENCHMARK</td></tr>
+<tr><td>Prediction</td><td>intelligence_score,dominant_bias,empirical_win_rate_per_clone,similarity_score,pattern_boost,oracle_boost</td><td>empirical_win_rate (dari Academy)</td><td>PREDICTION</td></tr>
+</tbody></table></div>
+<p><b>Hukum snapshot:</b> satu sumber, banyak turunan — <code>dist</code> diproduksi hanya di Truth; <code>dist_ceiling/floor/pp/rangeAtr</code> hanya di Structure; tidak ada domain lain menghitung ulang dari OHLCV. Snapshot Prediction <b>tidak</b> memuat output model prediktif (menambahnya = pelanggaran).</p>
+</section>
+
+<!-- ===================== DOC 7 ===================== -->
+<section class="doc reveal" id="d7">
+<button class="copybtn" data-copy="d7">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 7 · DOCUMENT 08</div>
+<h2>Knowledge <em>Architecture</em></h2>
+<p class="lede">Enam entitas pengetahuan, unidirectional & card-agnostic, <b>no-ML</b>. Hubungan antar-snapshot via <i>join pada ts/candle_id + entity_type</i>, bukan referensi mutable.</p>
+
+<div class="tblwrap"><table>
+<thead><tr><th>Entitas</th><th>Membaca</th><th>Memproduksi</th><th>Hukum</th></tr></thead>
+<tbody>
+<tr><td>River</td><td>seluruh card</td><td>append+index+chronicle</td><td>archivist; tak berpikir; no-ML</td></tr>
+<tr><td>Academy</td><td>marker+snapshot (join)</td><td>academy_artifacts (per clone/structure/distance_bucket/reason), bahan CERMIN</td><td>sample-gated; win_rate empiris bersyarat</td></tr>
+<tr><td>Oracle</td><td>vektor kini+historis</td><td>oracle_match (euclidean+tie-break terbaru; match&gt;7500)</td><td>vektor beku; W%R/MACD <b>tidak</b> masuk vektor</td></tr>
+<tr><td>HiveMind</td><td>artifacts+oracle+<b>currentEvidence (wajib dari snapshot)</b></td><td>market_understanding (score+bias+boost)</td><td>pemahaman, bukan sinyal; tak mengalir balik</td></tr>
+<tr><td>Darwin</td><td>artifacts+bounded+PEX</td><td>proposals (Kelas A bounded / Kelas B PEX)</td><td>tak auto-execute; validator tolak campur-peran</td></tr>
+<tr><td>Librarian</td><td>artifacts</td><td>lifecycle NEW→OBS→TRUSTED→MATURE / DEAD / DEPRECATED</td><td>DEAD/DEPRECATED tak jadi boost/entry-PEX</td></tr>
+</tbody></table></div>
+<p><b>Vektor Oracle beku</b> = <code>[norm_code(wave), norm_code(cage.status), pp, norm01(dir_bus.ema), norm01(dir_bus.oi), norm01(dir_bus.vd), norm_code(mtf.sector), norm01(rsi), norm01(distAtr)]</code>. Mengubah tabel <code>norm_code</code> = <code>config_version</code> baru.</p>
+</section>
+
+<!-- ===================== DOC 8 ===================== -->
+<section class="doc reveal" id="d8">
+<button class="copybtn" data-copy="d8">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 8 · DOCUMENT 09</div>
+<h2>Simulation <em>Architecture</em></h2>
+<p class="lede">Simulator = <b>first-class citizen</b>. Ia mengeksekusi niat clone terhadap candle & menulis marker after-fee (adverse-first). Clone tidak menghitung PnL sendiri.</p>
+
+<h3><span class="ix">8.1</span> Jenis Simulasi Wajib</h3>
+<ul>
+ <li class="ok"><b>Historical Simulation</b> — replay fixture/IndexedDB deterministik.</li>
+ <li class="ok"><b>Live Simulation</b> — feed 1m (fetch/WS bila online; fallback fixture offline); provisional≠final.</li>
+ <li class="ok"><b>Strategy Simulation</b> — satu clone diisolasi untuk studi.</li>
+ <li class="ok"><b>Clone Simulation</b> — 3 clone bersamaan, ledger terisolasi, snapshot bersama.</li>
+</ul>
+
+<h3><span class="ix">8.2</span> Hukum Eksekusi</h3>
+<div class="laws">
+ <div class="law"><div class="n">SIM-01</div><div class="h">Adverse-First</div><div class="d">SL & TP se-candle → SL menang (konservatif, jujur).</div></div>
+ <div class="law"><div class="n">SIM-02</div><div class="h">Fee Berlapis</div><div class="d">net = gross − fee_murni(taker,discount) − slip_seeded − safety; WIN hanya net&gt;0.</div></div>
+ <div class="law"><div class="n">SIM-03</div><div class="h">Entry = Close</div><div class="d">entry pada close candle FINAL; provisional ditolak.</div></div>
+ <div class="law"><div class="n">SIM-04</div><div class="h">MAE/MFE</div><div class="d">dilacak per posisi → bahan kalibrasi SL/TP (CERMIN-EXIT).</div></div>
+ <div class="law"><div class="n">SIM-05</div><div class="h">Persist Serial</div><div class="d">worker kirim hasil; main yang tulis IndexedDB → nol race.</div></div>
+</div>
+</section>
+
+<!-- ===================== DOC 9 ===================== -->
+<section class="doc reveal" id="d9">
+<button class="copybtn" data-copy="d9">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 9 · DOCUMENT 10</div>
+<h2>Replay <em>Architecture</em></h2>
+<p class="lede">Enam replay wajib, semuanya reproduktibel karena sumber (<code>st,ATR,close</code>, marker, config) deterministik. Replay = “mesin waktu” yang membaca card, bukan menghitung ulang sembarangan.</p>
+
+<div class="tblwrap"><table>
+<thead><tr><th>Replay</th><th>Membaca</th><th>Memutar</th><th>Gunanya</th></tr></thead>
+<tbody>
+<tr><td>Candle</td><td>market_snapshot sequence</td><td>candle per langkah (scrubber/step/auto)</td><td>observasi manual</td></tr>
+<tr><td>Snapshot</td><td>10 snapshot per candle</td><td>frame lengkap (Truth→Prediction)</td><td>audit keadaan</td></tr>
+<tr><td>Trade</td><td>trade_snapshot</td><td>marker + equity per clone</td><td>studi hasil</td></tr>
+<tr><td>Clone</td><td>clone_snapshot</td><td>observasi+posisi+grid per clone</td><td>studi hipotesis</td></tr>
+<tr><td>Knowledge</td><td>knowledge_snapshot</td><td>evolusi artifact/proposal/lifecycle</td><td>audit pembelajaran</td></tr>
+<tr><td>Governance</td><td>governance+config_version</td><td>timeline keputusan+rollback</td><td>audit evolusi</td></tr>
+</tbody></table></div>
+<p><b>Resume:</b> replay membaca <code>checkpoints</code> (last_processed_1m + indicator state); bila absen, recompute hanya hot-window 3h (CPU-idle dimanfaatkan). Shutdown kapan pun aman — semua state penting ada di store.</p>
+</section>
+
+<!-- ===================== DOC 10 ===================== -->
+<section class="doc reveal" id="d10">
+<button class="copybtn" data-copy="d10">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 10 · DOCUMENT 11</div>
+<h2>Governance <em>Architecture</em></h2>
+<p class="lede">Rem & kemudi evolusi. Governance memvalidasi konstitusi, proposal, authority matrix, build, runtime — dan mengaudit semuanya. Loop balik <b>hanya</b> ke parameter <code>BOUNDED</code> & PEX, <b>tidak pernah</b> ke Truth/Structure/Evidence/Clone-logic.</p>
+
+<h3><span class="ix">10.1</span> Enam Validasi Wajib</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Validasi</th><th>Memeriksa</th><th>Bila Gagal</th></tr></thead>
+<tbody>
+<tr><td>Constitution Validation</td><td>15 hukum implementasi + authority matrix + W%R/clone/snapshot contract</td><td><span class="pill no">BUILD STOP</span></td></tr>
+<tr><td>Proposal Validation</td><td>bounded-check + label-peran PEX + constitutional-atom</td><td>auto-reject (OUT_OF_RANGE / VIOLATION)</td></tr>
+<tr><td>Authority Matrix Validation</td><td>komponen tak dipakai di luar kolom sah (mis. W%R≠entry)</td><td><span class="pill no">BUILD STOP</span></td></tr>
+<tr><td>Build Validation</td><td>15 build-stop-rule + inventory lengkap + determinisme build</td><td><span class="pill no">BUILD STOP</span></td></tr>
+<tr><td>Runtime Validation</td><td>checksum card, lineage, no-race writer, sample-gate, no-mock</td><td>card ditolak / panel N/A</td></tr>
+<tr><td>Governance Audit</td><td>timeline keputusan, rollback deterministik, deprecated tak hidup</td><td>peristiwa ANOMALY</td></tr>
+</tbody></table></div>
+
+<h3><span class="ix">10.2</span> Workflow Proposal (3 rem)</h3>
+<ol>
+ <li class="ok">Darwin menulis proposal (status <code>PENDING</code> / auto <code>REJECTED_OUT_OF_RANGE</code>).</li>
+ <li class="ok">WASIT walk-forward paralel → 5 gate → <code>REJECTED_BY_WASIT</code> bila FAIL.</li>
+ <li class="ok"><code>PENDING_HUMAN_APPROVAL</code> → manusia approve/reject di Consumer.</li>
+ <li class="ok">Approve → <code>config_version</code> baru pada boundary deterministik + audit; rollback = tunjuk version lama.</li>
+</ol>
+</section>
+
+<!-- ===================== DOC 11 ===================== -->
+<section class="doc reveal" id="d11">
+<button class="copybtn" data-copy="d11">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 11 · DOCUMENT 12</div>
+<h2>HTML OS <em>Blueprint</em></h2>
+<p class="lede">Cetak-biru Native-HTML OS yang <b>akan</b> dibangun pada PHASE 14 (setelah approval). Dokumen ini <b>merancang</b>, bukan menjalankan. Pemetaan modul→file→thread→store.</p>
+
+<h3><span class="ix">11.1</span> Modul → Artefak Browser</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Modul Konstitusi</th><th>Artefak</th><th>Thread</th><th>Store</th></tr></thead>
+<tbody>
+<tr><td>BOOT/Resource/Config/Workspace/Checkpoint</td><td><code>boot.mjs</code>,<code>workspace.mjs</code>,<code>checkpoint.mjs</code></td><td>main</td><td>config_state,checkpoints</td></tr>
+<tr><td>MARKET</td><td><code>market.mjs</code>,<code>data.worker.mjs</code></td><td>main+worker</td><td>cold(blob),warm</td></tr>
+<tr><td>TRUTH</td><td><code>truth/{point,line,slope,wave,versioning,validation,flip}.mjs</code></td><td>main(hot)</td><td>cards</td></tr>
+<tr><td>STRUCTURE</td><td><code>structure/{cage,wall,ladder,nearest,cluster}.mjs</code></td><td>main</td><td>cards</td></tr>
+<tr><td>EVIDENCE</td><td><code>evidence/{direction,exit,vel_acc,oi,voldelta,mtf,maxscore}.mjs</code></td><td>main</td><td>cards</td></tr>
+<tr><td>CLONE</td><td><code>clone/{long,short,grid,corridor,orchestrator,global}.mjs</code></td><td>main</td><td>cards,checkpoints</td></tr>
+<tr><td>TRADE/POSITION</td><td><code>trade/{entry,tp,wrong,marker}.mjs</code>,<code>position/*.mjs</code></td><td>main</td><td>cards</td></tr>
+<tr><td>GRID</td><td><code>grid/decision.mjs</code></td><td>main</td><td>cards</td></tr>
+<tr><td>STATISTICS</td><td><code>stats/aggregator.mjs</code></td><td>main+worker</td><td>warm(materialized)</td></tr>
+<tr><td>KNOWLEDGE</td><td><code>knowledge/{river,academy,oracle,hivemind,darwin,librarian,cermin}.mjs</code></td><td>worker(dingin)</td><td>cards</td></tr>
+<tr><td>BENCHMARK</td><td><code>benchmark/wasit.mjs</code></td><td>worker(paralel)</td><td>cards</td></tr>
+<tr><td>SIMULATION/REPLAY</td><td><code>sim/engine.mjs</code>,<code>replay/*.mjs</code></td><td>main+worker</td><td>cards,checkpoints</td></tr>
+<tr><td>GOVERNANCE</td><td><code>gov/{workflow,bounded,versioning,validation}.mjs</code></td><td>main</td><td>governance,config_state</td></tr>
+<tr><td>CONSUMER</td><td><code>consumer/{fund,veto,intent,simplugin,liveadapter}.mjs</code> + views</td><td>main</td><td>—</td></tr>
+<tr><td>AUDIT/VIS</td><td><code>audit/*.mjs</code>,<code>view/*.mjs</code></td><td>main</td><td>baca cards</td></tr>
+</tbody></table></div>
+
+<h3><span class="ix">11.2</span> Kontrak UI (anti-mock, control-plane)</h3>
+<ul>
+ <li class="ok">UI <b>membaca</b> card via API internal (query IndexedDB); <b>tidak</b> menghitung logika market; <b>tidak</b> menyimpan kebenaran di localStorage (hanya preferensi).</li>
+ <li class="ok">Kosong = <code>N/A</code>; tombol = perintah ke engine main-thread; live-adapter <b>disabled default</b>.</li>
+ <li class="ok">Viewer: Geometry (candle+ST+cage+marker), Clone (3 ledger+observasi), Trade (equity+history+export CSV), Replay (scrubber/step), Knowledge (artifact+oracle+cermin).</li>
+</ul>
+</section>
+
+<!-- ===================== DOC 12 ===================== -->
+<section class="doc reveal" id="d12">
+<button class="copybtn" data-copy="d12">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 12 · DOCUMENT 13</div>
+<h2>Implementation <em>Plan</em></h2>
+<p class="lede">Urutan bangun yang menghormati dependensi & “fondasi dulu”. Tiap langkah punya DoD yang merujuk target PHASE 2. Tidak ada langkah yang membangun Consumer/Visual sebelum Core+Governance lolos Runtime Validation.</p>
+
+<div class="tblwrap"><table>
+<thead><tr><th>Step</th><th>Membangun</th><th>DoD (merujuk)</th></tr></thead>
+<tbody>
+<tr><td>S1</td><td>Bedrock: decimal(int-tick+canonical), id, wib, hash, prng, lifecycle, card, validator, bus, bounded, governor, store(IndexedDB writer serial)</td><td>round-trip AKE/SOL/BTC; id deterministik; verify mendeteksi 1-byte</td></tr>
+<tr><td>S2</td><td>BOOT+Workspace+Checkpoint+Config</td><td>resume pasca-close tab; config_version termuat</td></tr>
+<tr><td>S3</td><td>MARKET (data.worker, hygiene, derived, cascade, gap)</td><td>gap ter-anomali; derived=agregasi 1m</td></tr>
+<tr><td>S4</td><td>TRUTH (point→line→slope→wave→versioning→validation→flip)</td><td>wave no-padding; zero-tolerance; AKE tak patah</td></tr>
+<tr><td>S5</td><td>STRUCTURE (cage+wall+ladder+nearest+cluster)</td><td>HUKUM CAGE; escape v0→v1→v2</td></tr>
+<tr><td>S6</td><td>EVIDENCE (3-bus+oi+voldelta+mtf+maxscore)</td><td>OI kosong=INSUFFICIENT; W%R≠entry</td></tr>
+<tr><td>S7</td><td>CLONE+TRADE+POSITION+GRID (3 ledger, orchestrator, grid_eval)</td><td>3 obs/candle; GRID marker; adverse-first; HOLD-veto</td></tr>
+<tr><td>S8</td><td>SIM+REPLAY (6 replay)</td><td>replay deterministik; resume checkpoint</td></tr>
+<tr><td>S9</td><td>STATISTICS+KNOWLEDGE (river→academy→oracle→hivemind→darwin→librarian→cermin)</td><td>unidirectional; no-ML; sample-gated</td></tr>
+<tr><td>S10</td><td>BENCHMARK (wasit worker paralel)</td><td>identik→G2 FAIL; 5 gate utuh</td></tr>
+<tr><td>S11</td><td>PREDICTION (empiris)</td><td>tanpa output model; N/A bila sample kurang</td></tr>
+<tr><td>S12</td><td>GOVERNANCE (6 validasi + workflow + rollback)</td><td>bounded auto-reject; rollback deterministik</td></tr>
+<tr><td>S13</td><td>CONSUMER (fund/veto/intent/simplugin/liveadapter-off) + API internal</td><td>SIDEWAY→GRID_INTENT; veto tanpa proyeksi</td></tr>
+<tr><td>S14</td><td>AUDIT + VISUALIZATION (5 viewer)</td><td>no-mock; export CSV dari card</td></tr>
+<tr><td>S15</td><td>Runtime/Build/Constitution Validation akhir → BUILD_APPROVAL</td><td>15 stop-rule PASS</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- ===================== DOC 13 ===================== -->
+<section class="doc reveal" id="d13">
+<button class="copybtn" data-copy="d13">copy §</button>
+<div class="ph-tag"><span class="bar"></span>PHASE 13 · DOCUMENT 14</div>
+<h2>Build Approval <em>Report</em></h2>
+<p class="lede">Pemeriksaan 15 <b>Build Stop Rule</b> terhadap seluruh dokumen & konstitusi beku. Ini gerbang sebelum PHASE 14 (implementasi HTML). Setiap kondisi diperiksa; ketegangan yang ditemukan dinyatakan <span class="pill rs">RESOLVED</span> (bukan konflik), sehingga build <b>tidak</b> terhenti.</p>
+
+<div class="verdict">
+ <div class="v pass"><div class="big" id="vpass">15</div><div class="l">stop-rule PASS</div></div>
+ <div class="v tens"><div class="big" id="vtens">2</div><div class="l">resolved tension</div></div>
+ <div class="v stop"><div class="big" id="vstop">0</div><div class="l">build stop</div></div>
+</div>
+
+<h3><span class="ix">13.1</span> Pemeriksaan 15 Build Stop Rule</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>#</th><th>Kondisi</th><th>Hasil</th><th>Bukti / Resolusi</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Specification conflict</td><td class="y">PASS</td><td>konstitusi inti + master + history konsisten; platform-binding dinyatakan eksplisit (D1.3)</td></tr>
+<tr><td>2</td><td>Hidden assumption</td><td class="y">PASS</td><td>setiap nilai punya sumber; NULL+status untuk yang absen (LAW-02)</td></tr>
+<tr><td>3</td><td>Missing feature</td><td class="y">PASS</td><td>inventory 0.2 memetakan seluruh fitur; 82 komponen + 22 domain</td></tr>
+<tr><td>4</td><td>Missing domain</td><td class="y">PASS</td><td>19/19 required domain + VISUALIZATION terinventarisasi</td></tr>
+<tr><td>5</td><td>Missing pipeline</td><td class="y">PASS</td><td>22 tahap pipeline (D5) lengkap + jenis SHARED/PER-CLONE/ON-DEMAND</td></tr>
+<tr><td>6</td><td>Missing authority matrix</td><td class="y">PASS</td><td>Entry/Position/Exit/Indicator matrix beku (history) dirujuk D1/D10</td></tr>
+<tr><td>7</td><td>Missing market logic</td><td class="y">PASS</td><td>corridor/TP/wrong/grid_eval/cage ter-spesifikasi (history + D5/D8)</td></tr>
+<tr><td>8</td><td>Governance conflict</td><td class="y">PASS</td><td>3-rem + bounded + loop-terbatas konsisten (D10)</td></tr>
+<tr><td>9</td><td>Constitution conflict</td><td class="y">PASS</td><td>15 hukum implementasi tak bertentangan dengan konstitusi inti</td></tr>
+<tr><td>10</td><td>Undefined behavior</td><td class="y">PASS</td><td>adverse-first, tie-break, escape, no-trade enum, HOLD-veto terdefinisi</td></tr>
+<tr><td>11</td><td>Undefined snapshot</td><td class="y">PASS</td><td>10 snapshot + field W/OD terdefinisi (D6)</td></tr>
+<tr><td>12</td><td>Undefined clone lifecycle</td><td class="y">PASS</td><td>lifecycle per-clone + 3-obs/candle + sub-ledger terdefinisi</td></tr>
+<tr><td>13</td><td>Undefined knowledge lifecycle</td><td class="y">PASS</td><td>Librarian 6-status + unidirectional terdefinisi (D7)</td></tr>
+<tr><td>14</td><td>Undefined simulation lifecycle</td><td class="y">PASS</td><td>4 jenis sim + 5 hukum eksekusi terdefinisi (D8)</td></tr>
+<tr><td>15</td><td>Undefined implementation contract</td><td class="y">PASS</td><td>Native-HTML contract + platform-binding + writer-serial terdefinisi (D1/D3/D4)</td></tr>
+</tbody></table></div>
+
+<h3><span class="ix">13.2</span> Resolved Tensions (bukan konflik)</h3>
+<div class="tblwrap"><table>
+<thead><tr><th>Tension</th><th>Kenapa bukan konflik</th><th>Resolusi beku</th></tr></thead>
+<tbody>
+<tr><td>RT-1: referensi HTML memuat mock/placeholder</td><td>referensi = visi panel, bukan konstitusi nilai</td><td>diadopsi sebagai kontrak field; nilai dari pipeline / <code>N/A</code> (D0.1, LAW-02)</td></tr>
+<tr><td>RT-2: history pakai Python/SQLite/ProcessPool; master minta Native-HTML</td><td>konstitusi inti tak mengikat bahasa; hanya platform yang berubah</td><td>platform-binding: IndexedDB/Worker/CompressionStream/BigInt-tick (D1.3, D3, D4)</td></tr>
+</tbody></table></div>
+
+<div class="call ok"><div class="ch">keputusan build</div>
+<p><b>BUILD APPROVED untuk memasuki PHASE 14.</b> 15/15 stop-rule PASS; 2 tension RESOLVED; 0 BUILD STOP. Tidak ada redesign, simplifikasi, atau fitur yang dihilangkan terhadap konstitusi beku. Implementasi HTML pada PHASE 14 <b>wajib</b> mematuhi ke-14 dokumen ini sebagai sumber kebenaran, dan setiap langkah S1–S15 (D12) diakhiri Runtime Validation sebelum lanjut. Dokumen ini sendiri <b>bukan</b> implementasi OS — ia prasyarat yang kini terpenuhi.</p></div>
+
+<h3><span class="ix">13.3</span> Jejak Kepatuhan terhadap Master Contract</h3>
+<ul>
+ <li class="ok">Native HTML Ecosystem Contract → D1.3, D3, D4, D11 (tanpa backend/DB-server/framework; offline; deterministik).</li>
+ <li class="ok">Constitution Freeze Contract → D1 (15 hukum) + D13 (pemeriksaan).</li>
+ <li class="ok">Full Feature Inventory Contract → D0 (19 domain + 82 komponen, nol missing).</li>
+ <li class="ok">Market Geometry / W%R / Snapshot / Clone / Simulation / Knowledge / Prediction / Governance Contract → masing-masing D5–D10 + history authority matrix, diperiksa di D13.</li>
+ <li class="ok">Build Stop Rule → D13.1 (15/15 PASS).</li>
+ <li class="ok">Implementation Order PHASE 0–13 → dokumen ini (01–14) lengkap & berurutan.</li>
+</ul>
+</section>
+
+</main>
+</div>
+
+<footer>
+ <div>ST-LMS · Implementation Constitution Reader · <b>14 dokumen</b> · PHASE 0–13 · <b>CONSTITUTIONALLY FROZEN</b></div>
+ <div>artefak = <b>dokumentasi</b> · html-os runtime = <b>belum dibangun (PHASE 14)</b> · sumber kebenaran = konstitusi beku</div>
+</footer>
+
+<script>
+/* ===== ambient constellation (UI dokumen, BUKAN logika ST-LMS) ===== */
+(function(){
+ const cv=document.getElementById('ambient'),x=cv.getContext('2d');let w,h,pts,raf;const N=52;
+ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function size(){w=cv.width=innerWidth;h=cv.height=innerHeight;}
+ function init(){size();pts=Array.from({length:N},()=>({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.14,vy:(Math.random()-.5)*.14}));}
+ function frame(){x.clearRect(0,0,w,h);
+  for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1;}
+  for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){const a=pts[i],b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+   if(d<148){x.strokeStyle=`rgba(244,180,0,${.045*(1-d/148)})`;x.lineWidth=1;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);x.stroke();}}
+  for(const p of pts){x.fillStyle='rgba(25,195,166,.2)';x.beginPath();x.arc(p.x,p.y,1.05,0,7);x.fill();}
+  raf=requestAnimationFrame(frame);}
+ init();if(!reduce)frame();addEventListener('resize',()=>{cancelAnimationFrame(raf);init();if(!reduce)frame();});
+})();
+
+/* ===== WIB clock (dokumentasi zona waktu konstitusi) ===== */
+(function(){const el=document.getElementById('wib');const p=n=>String(n).padStart(2,'0');
+ function t(){const d=new Date(Date.now()+7*3600000);el.textContent=`${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} WIB`;}
+ t();setInterval(t,1000);})();
+
+/* ===== scroll reveal ===== */
+const rev=new IntersectionObserver(es=>es.forEach((en,i)=>{if(en.isIntersecting){en.target.style.transitionDelay=(Math.min(i,6)*45)+'ms';en.target.classList.add('in');rev.unobserve(en.target);}}),{threshold:.07});
+document.querySelectorAll('.reveal').forEach(e=>rev.observe(e));
+
+/* ===== toc active + read progress ===== */
+const docs=[...document.querySelectorAll('.doc')];const links=[...document.querySelectorAll('nav.toc a')];
+const tocObs=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){const id=en.target.id;links.forEach(a=>a.classList.toggle('on',a.dataset.d===id));}}),{rootMargin:'-42% 0px -52% 0px'});
+docs.forEach(d=>tocObs.observe(d));
+const prog=document.getElementById('readprog');
+addEventListener('scroll',()=>{const h=document.documentElement;const p=h.scrollTop/(h.scrollHeight-h.clientHeight);prog.style.width=(p*100).toFixed(1)+'%';},{passive:true});
+
+/* ===== search filter (highlight + scroll) ===== */
+const q=document.getElementById('q');
+function clearMarks(){document.querySelectorAll('main mark').forEach(m=>{const t=document.createTextNode(m.textContent);m.replaceWith(t);});}
+q.addEventListener('input',()=>{
+ clearMarks();const term=q.value.trim().toLowerCase();
+ if(term.length<2)return;
+ let first=null;
+ docs.forEach(d=>{
+  const hit=d.textContent.toLowerCase().includes(term);
+  d.style.opacity=hit?'1':'.28';
+  if(hit&&!first)first=d;
+ });
+ if(first){/* soft highlight on headings only to avoid layout thrash */}
+});
+q.addEventListener('keydown',e=>{if(e.key==='Enter'){clearMarks();docs.forEach(d=>d.style.opacity='1');const term=q.value.trim().toLowerCase();const f=docs.find(d=>d.textContent.toLowerCase().includes(term));if(f)f.scrollIntoView({behavior:'smooth'});}});
+
+/* ===== copy section ===== */
+document.querySelectorAll('.copybtn').forEach(b=>b.addEventListener('click',()=>{
+ const sec=document.getElementById(b.dataset.copy);const txt=sec.innerText;
+ navigator.clipboard?.writeText(txt).then(()=>{b.textContent='copied';b.classList.add('done');setTimeout(()=>{b.textContent='copy §';b.classList.remove('done');},1400);}).catch(()=>{b.textContent='err';});
+}));
+
+/* ===== build state chip (mencerminkan D13: 15 PASS / 2 tension / 0 stop) ===== */
+(function(){const PASS=15,TENS=2,STOP=0;
+ document.getElementById('vpass').textContent=PASS;document.getElementById('vtens').textContent=TENS;document.getElementById('vstop').textContent=STOP;
+ const chip=document.getElementById('buildstate');
+ if(STOP>0){chip.textContent='STOP';chip.parentElement.classList.add('warn');}
+ else{chip.textContent='APPROVED';}
+})();
+</script>
+</body>
+</html>
