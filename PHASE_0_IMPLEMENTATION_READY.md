@@ -175,4 +175,76 @@
 
 ---
 
+## 8. REFINEMENT READINESS
+
+### 8.1 Refinement Mapping (20 Refinements)
+
+| # | Refinement | Layer | Phase | Status |
+|---|-----------|-------|-------|--------|
+| 1 | Present Dimension | TRUTH | Phase-05 | ✅ Covered — truth_snapshot W fields (st, atr, ema, rsi, wpr, distAtr) |
+| 2 | Past Dimension | BAG + KNOWLEDGE | Phase-15,16 | ✅ Covered — Academy artifacts, Oracle historical vectors, bag_artifacts |
+| 3 | Future Dimension | PREDICTION | Phase-17 | ✅ Covered — prediction_snapshot (empirical win_rate, similarity_score) |
+| 4 | Character Dimension | BAG | Phase-15 | ✅ Covered — behavior_profile, bag_kind classification |
+| 5 | Trading Truth Package | CLONE + TRADE | Phase-09,10 | ✅ Covered — clone_observation (entry_allowed, no_entry_reason), trade_markers (kind, reason, result) |
+| 6 | Entry Truth | TRADE | Phase-10 | ✅ Covered — ENTRY_MARKER (entry price, sl, tp, reason) |
+| 7 | Position Truth | POSITION | Phase-11 | ✅ Covered — position_state (mae, mfe, hold_c, entry_price) |
+| 8 | Exit Truth | TRADE | Phase-10 | ✅ Covered — EXIT_MARKER (exit price, reason, net, result) |
+| 9 | Market Intelligence Report | HIVEMIND | Phase-16 | ✅ Covered — hivemind_understanding (intelligence_score, dominant_bias) |
+| 10 | Living Market State | MARKET + TRUTH | Phase-04,05 | ✅ Covered — market_snapshot + truth_snapshot per closed candle |
+| 11 | Market Character | BAG | Phase-15 | ✅ Covered — behavior_profile (TREND_FOLLOWING, MEAN_REVERSION, BREAKOUT_HUNTER, etc.) |
+| 12 | Market Biography | BAG | Phase-15 | ✅ Covered — sequence_patterns (wave sequences, cage sequences, trade sequences) |
+| 13 | Compression Maturity | BAG | Phase-15 | ✅ Covered — maturity_score on cage compression artifacts |
+| 14 | Supertrend Snapshot | TRUTH | Phase-05 | ✅ Covered — truth_snapshot.st, .st_dir, .st_color, .st_canon |
+| 15 | Multi Time Frame Report | EVIDENCE | Phase-08 | ✅ Covered — mtf_sector (sector, raw, max, final, long, short, range) |
+| 16 | Williams %R Integration | TRUTH + EVIDENCE | Phase-05,08 | ✅ Covered — truth_snapshot.wpr, evidence exit_bus (exit-only per authority matrix) |
+| 17 | Market Timeline | RIVER | Phase-16 | ✅ Covered — chronicle events (append-only timeline of all cards) |
+| 18 | Expensive Data Classification | BAG | Phase-15 | ✅ Covered — bag_kind=risk (fee_drag, wrong_rate, adverse patterns) |
+| 19 | Critical Data Classification | AUDIT | Phase-24 | ✅ Covered — audit_logs severity (CRITICAL/HIGH/MEDIUM/LOW/INFO) |
+| 20 | Recommendation Package | DARWIN | Phase-16 | ✅ Covered — darwin_proposals (TIGHTEN_ENTRY, TIGHTEN_WRONG, Kelas-A/B) |
+
+### 8.2 Refinement Dependency
+
+```
+PRESENT (TRUTH) ──► PAST (BAG+KNOWLEDGE) ──► FUTURE (PREDICTION)
+     │                      │                        │
+     ▼                      ▼                        ▼
+CHARACTER (BAG) ◄── MARKET BIOGRAPHY (BAG) ◄── RECOMMENDATION (DARWIN)
+     │                      │
+     ▼                      ▼
+TRADING TRUTH ◄── COMPRESSION MATURITY (BAG)
+(CLONE+TRADE)
+     │
+     ├── ENTRY TRUTH (TRADE)
+     ├── POSITION TRUTH (POSITION)
+     └── EXIT TRUTH (TRADE)
+
+LIVING MARKET STATE (MARKET+TRUTH) ──► MARKET INTELLIGENCE (HIVEMIND)
+SUPERTREND SNAPSHOT (TRUTH) ──► MTF REPORT (EVIDENCE)
+W%R INTEGRATION (TRUTH+EVIDENCE) ──► EXIT TRUTH (TRADE)
+MARKET TIMELINE (RIVER) ──► MARKET BIOGRAPHY (BAG)
+EXPENSIVE DATA (BAG) + CRITICAL DATA (AUDIT) ──► RECOMMENDATION (DARWIN)
+```
+
+### 8.3 Refinement Verdict
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│              REFINEMENT AUDIT VERDICT                             │
+│                                                                    │
+│  Total Refinements:        20                                     │
+│  Already Covered:          20 (100%)                              │
+│  Need New Layer:            0                                     │
+│  Need New Phase:            0                                     │
+│  Need SQLite Change:        0                                     │
+│  Need Pipeline Change:      0                                     │
+│  Conflict with Architecture: 0                                    │
+│                                                                    │
+│  VERDICT: ALL 20 REFINEMENTS ALREADY COVERED                      │
+│  No architecture changes required.                                │
+│  Refinements are implementation enrichments within existing layers.│
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 **PHASE 0 COMPLETE. BUILD CAN PROCEED TO PHASE 1.**

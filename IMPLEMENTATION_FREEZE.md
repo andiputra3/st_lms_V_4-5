@@ -126,7 +126,7 @@ The dependency matrix is FROZEN:
 
 ## 6. REFINEMENT FREEZE
 
-Enrichment from `ENRICHMENT_REPORT_V1.md` is FROZEN:
+### 6.1 Enrichment (from ENRICHMENT_REPORT_V1.md) — FROZEN
 
 | Refinement | Status |
 |-----------|--------|
@@ -136,7 +136,85 @@ Enrichment from `ENRICHMENT_REPORT_V1.md` is FROZEN:
 | Consumer Matrix | APPROVED — FROZEN |
 | Pipeline revisi (DISTANCE visual, POSITION after TRADE, BENCHMARK after GOVERNANCE) | APPROVED — FROZEN |
 
+### 6.2 Refinement Architecture (20 Refinements) — FROZEN
+
+| # | Refinement | Layer Owner | Phase | Authority |
+|---|-----------|------------|-------|-----------|
+| 1 | Present Dimension | TRUTH | Phase-05 | Read current candle state |
+| 2 | Past Dimension | BAG + KNOWLEDGE | Phase-15,16 | Read historical artifacts |
+| 3 | Future Dimension | PREDICTION | Phase-17 | Read empirical probability |
+| 4 | Character Dimension | BAG | Phase-15 | Classify market behavior |
+| 5 | Trading Truth Package | CLONE + TRADE | Phase-09,10 | Record entry/exit truth |
+| 6 | Entry Truth | TRADE | Phase-10 | Record entry marker |
+| 7 | Position Truth | POSITION | Phase-11 | Track position state |
+| 8 | Exit Truth | TRADE | Phase-10 | Record exit marker |
+| 9 | Market Intelligence Report | HIVEMIND | Phase-16 | Synthesize understanding |
+| 10 | Living Market State | MARKET + TRUTH | Phase-04,05 | Per-candle snapshot |
+| 11 | Market Character | BAG | Phase-15 | Behavior profile |
+| 12 | Market Biography | BAG | Phase-15 | Sequence patterns |
+| 13 | Compression Maturity | BAG | Phase-15 | Cage compression scoring |
+| 14 | Supertrend Snapshot | TRUTH | Phase-05 | ST values per candle |
+| 15 | Multi Time Frame Report | EVIDENCE | Phase-08 | Wave to MTF mapping |
+| 16 | Williams %R Integration | TRUTH + EVIDENCE | Phase-05,08 | Exit-only per authority |
+| 17 | Market Timeline | RIVER | Phase-16 | Chronicle all cards |
+| 18 | Expensive Data Classification | BAG | Phase-15 | Risk classification |
+| 19 | Critical Data Classification | AUDIT | Phase-24 | Severity levels |
+| 20 | Recommendation Package | DARWIN | Phase-16 | Parameter proposals |
+
+### 6.3 Refinement Authority Rules
+
+```
+1. WITHIN LAYER: Refinements implemented only in their designated layer.
+2. NO NEW LAYER: Refinements do not create new layers.
+3. NO NEW PHASE: Refinements do not create new build phases.
+4. NO NEW TABLE: Refinements use existing SQLite columns or payload_json.
+5. NO OVERRIDE: Refinements enrich — they do not override existing logic.
+6. READ-ONLY WHERE SPECIFIED: Refinements read data, do not modify sources.
+7. SPEC REFERENCE: Every refinement must reference MASTER_SPECIFICATION section.
+```
+
 Refinement hanya memperkaya layer yang sudah ada. Tidak menciptakan layer baru. Tidak mengubah arsitektur layer.
+
+---
+
+## 7. LAYER OUTPUT CONTRACT (FROZEN)
+
+Setiap layer WAJIB menghasilkan 4 output:
+
+| # | Output | Purpose | Mandatory |
+|---|--------|---------|-----------|
+| 1 | **Artifact** | Raw data/snapshot — immutable card | YES |
+| 2 | **Package** | Structured report — multi-artifact aggregation | YES |
+| 3 | **Validator** | Quality assurance — determinism, range, completeness | YES |
+| 4 | **Consumer** | Downstream interface — API for next layer or Dashboard | YES |
+
+### Layer Output Matrix
+
+| Layer | Artifact | Package | Validator | Consumer |
+|-------|----------|---------|-----------|----------|
+| MARKET | market_snapshot | MarketReportPackage | hygiene, gap, OI | → TRUTH |
+| TRUTH | truth_snapshot | TruthReportPackage | determinism, warmup | → STRUCTURE, EVIDENCE |
+| STRUCTURE | structure_snapshot | StructureReportPackage | HUKUM CAGE, wave | → EVIDENCE, CLONE |
+| EVIDENCE | evidence_snapshot | EvidenceReportPackage | bus sterility | → CLONE, HIVEMIND |
+| CLONE | clone_observation | CloneReportPackage | 3 obs/candle | → TRADE |
+| TRADE | trade_markers | TradeReportPackage | P&L, adverse-first | → POSITION, STATISTICS |
+| POSITION | position_state | PositionReportPackage | MAE/MFE | → STATISTICS |
+| STATISTICS | statistics_snapshot | StatisticsReportPackage | sample gate | → BAG |
+| BAG | bag_artifacts | BAGReportPackage | no write-back | → KNOWLEDGE |
+| KNOWLEDGE | knowledge_snapshot | KnowledgeReportPackage | unidirectional, no-ML | → PREDICTION |
+| PREDICTION | prediction_snapshot | PredictionReportPackage | no-model | → TRADING SCHEMA, CONSUMER |
+| GOVERNANCE | config_version | GovernanceReportPackage | 6 validations | → CONSUMER |
+| BENCHMARK | benchmark_snapshot | BenchmarkReportPackage | WASIT 5-gate | → GOVERNANCE |
+
+### Dashboard Rule (FROZEN)
+
+Dashboard TIDAK melakukan analisis. Dashboard hanya menggabungkan report packages dari seluruh layer.
+
+### Prediction Rule (FROZEN)
+
+Prediction = Market Possibility, BUKAN Trading Prediction.
+Output: "80% Breakout", "67% Trend Continuation", "45% Mean Reversion".
+BUKAN: "BUY BTC", "SELL ETH", atau sinyal trading lainnya.
 
 ---
 

@@ -123,3 +123,57 @@
 
 Each phase produces a PR with branch: `build/phase-XX`
 Merge manually after review.
+
+---
+
+## Per-Layer Build Pattern
+
+Setiap layer dibangun dengan urutan: **Artifact → Package → Validator → Consumer**
+
+| Order | File | Purpose |
+|-------|------|---------|
+| 1 | `{layer}_artifact.py` | Raw data/snapshot production |
+| 2 | `{layer}_package.py` | Structured report from artifacts |
+| 3 | `{layer}_validator.py` | Quality assurance checks |
+| 4 | `{layer}_consumer.py` | Downstream API interface |
+
+Contoh untuk TRUTH layer:
+```
+truth_artifact.py   — PointBuilder, semua indikator, truth_snapshot
+truth_package.py    — SupertrendReport, IndicatorReport, TruthReportPackage
+truth_validator.py  — determinism check, warmup check, range validation
+truth_consumer.py   — API untuk Structure, Evidence, Dashboard
+```
+
+Dashboard TIDAK melakukan analisis. Dashboard hanya menggabungkan report packages dari seluruh layer.
+
+---
+
+## Refinement Implementation Order
+
+All 20 refinements are already covered within existing phases. No new phases required.
+
+| Refinement | Covered In Phase | Implementation Note |
+|-----------|-----------------|---------------------|
+| Present Dimension | Phase-05 (Truth) | truth_snapshot W fields — implement with full field set |
+| Past Dimension | Phase-15,16 (BAG+Knowledge) | Academy historical buckets, Oracle vector history |
+| Future Dimension | Phase-17 (Prediction) | prediction_snapshot — empirical win_rate only |
+| Character Dimension | Phase-15 (BAG) | behavior_profile as part of behavior_analysis component |
+| Trading Truth Package | Phase-09,10 (Clone+Trade) | clone_observation + trade_markers with full reason fields |
+| Entry Truth | Phase-10 (Trade) | ENTRY_MARKER — reason, entry, sl, tp mandatory |
+| Position Truth | Phase-11 (Position) | position_state — mae, mfe, hold_c tracking |
+| Exit Truth | Phase-10 (Trade) | EXIT_MARKER — reason, exit, net, result mandatory |
+| Market Intelligence Report | Phase-16 (Knowledge) | HiveMind synth — intelligence_score + dominant_bias |
+| Living Market State | Phase-04,05 (Market+Truth) | Per-candle snapshot pair as living state |
+| Market Character | Phase-15 (BAG) | behavior_profile with 6 profile types |
+| Market Biography | Phase-15 (BAG) | sequence_analysis — wave/cage/trade sequences |
+| Compression Maturity | Phase-15 (BAG) | maturity_score on cage compression bag_artifacts |
+| Supertrend Snapshot | Phase-05 (Truth) | st, stDir, color, st_canon in truth_snapshot |
+| Multi Time Frame Report | Phase-08 (Evidence) | mtf_sector from wave structure classification |
+| Williams %R Integration | Phase-05,08 (Truth+Evidence) | W%R in truth_snapshot, exit-only in exit_bus |
+| Market Timeline | Phase-16 (Knowledge) | River chronicle — all card events append-only |
+| Expensive Data Classification | Phase-15 (BAG) | bag_kind=risk — fee_drag, wrong_rate grouping |
+| Critical Data Classification | Phase-24 (Audit) | audit_logs severity — CRITICAL/HIGH/MEDIUM/LOW/INFO |
+| Recommendation Package | Phase-16 (Knowledge) | Darwin proposals — TIGHTEN_ENTRY, TIGHTEN_WRONG |
+
+**Refinement Build Rule:** Implement refinements within their respective phases. Do NOT create separate phases for refinements.

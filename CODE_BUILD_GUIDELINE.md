@@ -21,6 +21,12 @@
 
 ## 2. MODULAR ARCHITECTURE
 
+- Setiap layer menghasilkan 4 file: `{layer}_artifact.py`, `{layer}_package.py`, `{layer}_validator.py`, `{layer}_consumer.py`
+- **Artifact**: Raw data/snapshot — immutable card production
+- **Package**: Structured report — menggabungkan multiple artifacts menjadi laporan
+- **Validator**: Quality assurance — determinism, range, completeness checks
+- **Consumer**: Downstream interface — API untuk layer berikutnya atau Dashboard
+- Dashboard TIDAK melakukan analisis — hanya menggabungkan report packages dari semua layer
 - One file per layer (market.py, truth.py, structure.py, etc.)
 - One file per worker (data_worker.py, knowledge_worker.py, etc.)
 - Shared utilities in core.py (decimal, canonical, hash, PRNG, WIB)
@@ -172,3 +178,45 @@
 - Every constant: comment with source specification section
 - README.md updated per phase
 - No TODO comments — complete or don't commit
+
+---
+
+## 16. REFINEMENT IMPLEMENTATION RULES
+
+Refinements are implementation enrichments within existing layers. They do NOT create new layers, phases, or SQLite tables.
+
+| Rule | Description |
+|------|-------------|
+| WITHIN LAYER | Implement refinement in its designated layer only |
+| NO NEW PHASE | Do not create separate build phases for refinements |
+| NO NEW TABLE | Use existing SQLite columns or payload_json for refinement data |
+| NO NEW PIPELINE | Refinements execute within existing pipeline stages |
+| NO OVERRIDE | Refinements enrich — they do not override existing logic |
+| EXISTING OUTPUT | Refinements use existing snapshot fields where available |
+| PAYLOAD JSON | New refinement data stored in existing payload_json columns |
+| SPEC REFERENCE | Every refinement must reference a specification section |
+
+### Refinement Implementation Locations
+
+| Refinement | File | Function/Class |
+|-----------|------|---------------|
+| Present Dimension | truth.py | PointBuilder.build() — ensure all W fields populated |
+| Past Dimension | bag.py | Grouper, Academy — historical artifact access |
+| Future Dimension | prediction.py | Summarizer — empirical_win_rate only |
+| Character Dimension | bag.py | BehaviorAnalyzer — behavior_profile output |
+| Trading Truth | clone.py, trade.py | dirObserve, mkEntry, mkExit |
+| Entry Truth | trade.py | mkEntry — reason, sl, tp mandatory |
+| Position Truth | position.py | update — mae, mfe, hold_c tracking |
+| Exit Truth | trade.py | mkExit — reason, net, result mandatory |
+| Market Intelligence | knowledge.py | HiveMind.synth — intelligence_score, bias |
+| Living Market State | market.py, truth.py | Per-candle snapshot pipeline |
+| Market Character | bag.py | BehaviorAnalyzer — 6 profile types |
+| Market Biography | bag.py | SequenceAnalyzer — wave/cage/trade sequences |
+| Compression Maturity | bag.py | MaturityAssessor — cage compression scoring |
+| Supertrend Snapshot | truth.py | PointBuilder — st, stDir, color |
+| MTF Report | evidence.py | mtfSector — wave to MTF mapping |
+| W%R Integration | truth.py, evidence.py | PointBuilder (wpr), exitBus (exit-only) |
+| Market Timeline | knowledge.py | River — chronicle append |
+| Expensive Data | bag.py | Classifier — bag_kind=risk |
+| Critical Data | audit.py | AuditLogger — severity levels |
+| Recommendation | knowledge.py | Darwin.propose — TIGHTEN_ENTRY, TIGHTEN_WRONG |
