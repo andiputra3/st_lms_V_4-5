@@ -23,6 +23,7 @@
 │   ✅ Trading Schemas:     41, all defined                         │
 │   ✅ Decision Trees:      8, all with contracts                   │
 │   ✅ Artifacts:           145, all with owner + consumer          │
+│   ✅ Refinements:         20/20 mapped to existing layers         │
 │                                                                   │
 │   SPECIFICATION CONFLICTS:    NONE                                │
 │   ARCHITECTURE CONFLICTS:     NONE                                │
@@ -108,3 +109,31 @@ First build: Phase-01 (SQLite Foundation) — 40 tables, 9 indexes, 4 triggers, 
 
 Branch: `build/phase-01`
 PR Title: `[ST-LMS] Phase-01: SQLite Foundation`
+
+---
+
+## REFINEMENT BUILD PERMISSION
+
+All 20 refinements are already covered within existing phases. No separate refinement build phase.
+
+| Refinement | Build In Phase | Permission |
+|-----------|---------------|------------|
+| Present Dimension | Phase-05 (Truth) | ✅ When Truth is built |
+| Past Dimension | Phase-15,16 (BAG+Knowledge) | ✅ When BAG+Knowledge is built |
+| Future Dimension | Phase-17 (Prediction) | ✅ When Prediction is built |
+| Character Dimension | Phase-15 (BAG) | ✅ When BAG is built |
+| Trading Truth | Phase-09,10 (Clone+Trade) | ✅ When Clone+Trade is built |
+| Entry/Position/Exit Truth | Phase-10,11 (Trade+Position) | ✅ When Trade+Position is built |
+| Market Intelligence | Phase-16 (Knowledge) | ✅ When Knowledge is built |
+| Living Market State | Phase-04,05 (Market+Truth) | ✅ When Market+Truth is built |
+| Market Character/Biography | Phase-15 (BAG) | ✅ When BAG is built |
+| Compression Maturity | Phase-15 (BAG) | ✅ When BAG is built |
+| Supertrend Snapshot | Phase-05 (Truth) | ✅ When Truth is built |
+| MTF Report | Phase-08 (Evidence) | ✅ When Evidence is built |
+| W%R Integration | Phase-05,08 (Truth+Evidence) | ✅ When Truth+Evidence is built |
+| Market Timeline | Phase-16 (Knowledge) | ✅ When Knowledge is built |
+| Expensive Data | Phase-15 (BAG) | ✅ When BAG is built |
+| Critical Data | Phase-24 (Audit) | ✅ When Audit is built |
+| Recommendation | Phase-16 (Knowledge) | ✅ When Knowledge is built |
+
+**Refinement Rule:** Implement refinements as part of their respective phases. Do NOT create separate PRs for refinements.
