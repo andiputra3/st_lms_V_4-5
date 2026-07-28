@@ -177,6 +177,47 @@ Refinement hanya memperkaya layer yang sudah ada. Tidak menciptakan layer baru. 
 
 ---
 
+## 7. LAYER OUTPUT CONTRACT (FROZEN)
+
+Setiap layer WAJIB menghasilkan 4 output:
+
+| # | Output | Purpose | Mandatory |
+|---|--------|---------|-----------|
+| 1 | **Artifact** | Raw data/snapshot — immutable card | YES |
+| 2 | **Package** | Structured report — multi-artifact aggregation | YES |
+| 3 | **Validator** | Quality assurance — determinism, range, completeness | YES |
+| 4 | **Consumer** | Downstream interface — API for next layer or Dashboard | YES |
+
+### Layer Output Matrix
+
+| Layer | Artifact | Package | Validator | Consumer |
+|-------|----------|---------|-----------|----------|
+| MARKET | market_snapshot | MarketReportPackage | hygiene, gap, OI | → TRUTH |
+| TRUTH | truth_snapshot | TruthReportPackage | determinism, warmup | → STRUCTURE, EVIDENCE |
+| STRUCTURE | structure_snapshot | StructureReportPackage | HUKUM CAGE, wave | → EVIDENCE, CLONE |
+| EVIDENCE | evidence_snapshot | EvidenceReportPackage | bus sterility | → CLONE, HIVEMIND |
+| CLONE | clone_observation | CloneReportPackage | 3 obs/candle | → TRADE |
+| TRADE | trade_markers | TradeReportPackage | P&L, adverse-first | → POSITION, STATISTICS |
+| POSITION | position_state | PositionReportPackage | MAE/MFE | → STATISTICS |
+| STATISTICS | statistics_snapshot | StatisticsReportPackage | sample gate | → BAG |
+| BAG | bag_artifacts | BAGReportPackage | no write-back | → KNOWLEDGE |
+| KNOWLEDGE | knowledge_snapshot | KnowledgeReportPackage | unidirectional, no-ML | → PREDICTION |
+| PREDICTION | prediction_snapshot | PredictionReportPackage | no-model | → TRADING SCHEMA, CONSUMER |
+| GOVERNANCE | config_version | GovernanceReportPackage | 6 validations | → CONSUMER |
+| BENCHMARK | benchmark_snapshot | BenchmarkReportPackage | WASIT 5-gate | → GOVERNANCE |
+
+### Dashboard Rule (FROZEN)
+
+Dashboard TIDAK melakukan analisis. Dashboard hanya menggabungkan report packages dari seluruh layer.
+
+### Prediction Rule (FROZEN)
+
+Prediction = Market Possibility, BUKAN Trading Prediction.
+Output: "80% Breakout", "67% Trend Continuation", "45% Mean Reversion".
+BUKAN: "BUY BTC", "SELL ETH", atau sinyal trading lainnya.
+
+---
+
 ## IMPLEMENTATION FREEZE STATUS: LOCKED
 
 No architecture changes. No new layers. No new components. No SQLite changes. No dependency changes. Implementation proceeds within frozen boundaries.

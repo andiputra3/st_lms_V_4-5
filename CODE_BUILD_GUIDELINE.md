@@ -21,6 +21,12 @@
 
 ## 2. MODULAR ARCHITECTURE
 
+- Setiap layer menghasilkan 4 file: `{layer}_artifact.py`, `{layer}_package.py`, `{layer}_validator.py`, `{layer}_consumer.py`
+- **Artifact**: Raw data/snapshot — immutable card production
+- **Package**: Structured report — menggabungkan multiple artifacts menjadi laporan
+- **Validator**: Quality assurance — determinism, range, completeness checks
+- **Consumer**: Downstream interface — API untuk layer berikutnya atau Dashboard
+- Dashboard TIDAK melakukan analisis — hanya menggabungkan report packages dari semua layer
 - One file per layer (market.py, truth.py, structure.py, etc.)
 - One file per worker (data_worker.py, knowledge_worker.py, etc.)
 - Shared utilities in core.py (decimal, canonical, hash, PRNG, WIB)

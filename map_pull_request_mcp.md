@@ -43,7 +43,32 @@ User says "buat PR untuk X"
 | GitHub Mode | `PR` |
 | Token | Classic (`ghp_...`) — `repo` scope |
 | .gitignore | Excludes `.stlms_github.conf` and `.stlms_github/` |
-| Existing PRs | PR #1 (readme — merged) |
+| PR #1 | readme — merged |
+| PR #2 | phase-0-final — mergeable: true, mergeable_state: clean |
+
+---
+
+## Mergeable Validation
+
+Setelah PR dibuat, WAJIB validasi `mergeable` sebelum memberi tahu user bahwa PR siap:
+
+```bash
+# Cek mergeable status
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://api.github.com/repos/andiputra3/st_lms_V_4-5/pulls/$PR_NUMBER" \
+  | jq '{mergeable, mergeable_state, merged}'
+```
+
+| mergeable | mergeable_state | Arti | Tindakan |
+|-----------|----------------|------|----------|
+| `true` | `clean` | Tidak ada konflik, siap merge | Beri tahu user: "PR siap di-merge" |
+| `true` | `behind` | Branch behind main | Pull main dulu, push ulang |
+| `true` | `blocked` | Ada konflik | Resolve konflik dulu |
+| `false` | `dirty` | Konflik tidak bisa auto-resolve | Merge manual di GitHub |
+| `null` | `unknown` | GitHub belum selesai cek | Tunggu 3-5 detik, cek ulang |
+| `null` | — | PR baru dibuat | Tunggu 3-5 detik, cek ulang |
+
+**Rule:** Jangan bilang "PR siap" sebelum `mergeable: true` DAN `mergeable_state: clean`.
 
 ---
 

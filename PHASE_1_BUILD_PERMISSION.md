@@ -105,10 +105,42 @@
 
 **Phase 1 implementation may begin.**
 
-First build: Phase-01 (SQLite Foundation) — 40 tables, 9 indexes, 4 triggers, seed data.
+### Build Strategy: Artifact → Package → Validator → Consumer
 
-Branch: `build/phase-01`
-PR Title: `[ST-LMS] Phase-01: SQLite Foundation`
+Setiap layer WAJIB menghasilkan 4 output:
+
+| Output | Purpose | Example (TRUTH) |
+|--------|---------|-----------------|
+| **Artifact** | Raw data/snapshot | `truth_snapshot.py` — st, atr, ema, rsi, wpr |
+| **Package** | Structured report | `truth_package.py` — SupertrendReport, IndicatorReport |
+| **Validator** | Quality assurance | `truth_validator.py` — determinism, warmup, range checks |
+| **Consumer** | Downstream interface | `truth_consumer.py` — API for Structure, Evidence, Dashboard |
+
+### Phase 1 Build Order (Revised)
+
+| Order | Phase | Layer | Artifact | Package | Validator | Consumer |
+|-------|-------|-------|----------|---------|-----------|----------|
+| 1 | Phase-01 | SQLite Foundation | schema.sql | — | integrity_check | — |
+| 2 | Phase-02 | BOOT + Workspace | boot.py | — | namespace init | — |
+| 3 | Phase-03 | Config | config.py | — | bounded valid | config.get/set |
+
+**Scope Phase 1:** Foundation layer only.
+
+### Architecture Philosophy
+
+```
+LAYER → ARTIFACT → PACKAGE → VALIDATOR → CONSUMER
+  │         │          │           │           │
+  │     raw data   structured   quality     downstream
+  │     snapshot   report       assurance   interface
+  │
+  └── Dashboard hanya menggabungkan report packages
+      Dashboard TIDAK melakukan analisis sendiri
+
+Prediction = Market Possibility (bukan Trading Prediction)
+  Output: "80% Breakout", "67% Trend Continuation", "45% Mean Reversion"
+  BUKAN: "BUY BTC" atau "SELL ETH"
+```
 
 ---
 

@@ -126,6 +126,29 @@ Merge manually after review.
 
 ---
 
+## Per-Layer Build Pattern
+
+Setiap layer dibangun dengan urutan: **Artifact → Package → Validator → Consumer**
+
+| Order | File | Purpose |
+|-------|------|---------|
+| 1 | `{layer}_artifact.py` | Raw data/snapshot production |
+| 2 | `{layer}_package.py` | Structured report from artifacts |
+| 3 | `{layer}_validator.py` | Quality assurance checks |
+| 4 | `{layer}_consumer.py` | Downstream API interface |
+
+Contoh untuk TRUTH layer:
+```
+truth_artifact.py   — PointBuilder, semua indikator, truth_snapshot
+truth_package.py    — SupertrendReport, IndicatorReport, TruthReportPackage
+truth_validator.py  — determinism check, warmup check, range validation
+truth_consumer.py   — API untuk Structure, Evidence, Dashboard
+```
+
+Dashboard TIDAK melakukan analisis. Dashboard hanya menggabungkan report packages dari seluruh layer.
+
+---
+
 ## Refinement Implementation Order
 
 All 20 refinements are already covered within existing phases. No new phases required.
