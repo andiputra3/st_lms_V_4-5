@@ -21,6 +21,7 @@ class FoundationCLI:
             self._help()
             return
         cmd = args[0].lower()
+        self._remaining_args = args[1:]
         if cmd == "status":
             self._cmd_status()
         elif cmd == "sqlite":
@@ -33,6 +34,8 @@ class FoundationCLI:
             self._cmd_benchmark()
         elif cmd == "config":
             self._cmd_config()
+        elif cmd == "mcp":
+            self._cmd_mcp()
         elif cmd == "help":
             self._help()
         else:
@@ -47,6 +50,7 @@ class FoundationCLI:
         print("  resource   Resource status")
         print("  benchmark  Benchmark results")
         print("  config     Configuration status")
+        print("  mcp        MCP server manager (list/on/off/toggle/tui)")
 
     def _cmd_status(self) -> None:
         print("=== Foundation Status ===")
@@ -117,6 +121,12 @@ class FoundationCLI:
                 print(f"  {p['key']}: {p['current']} (min={p['min']}, max={p['max']})")
         else:
             print("Config not loaded")
+
+    def _cmd_mcp(self) -> None:
+        from .mcp_cli import run_cmd
+        import sys
+        args = self._remaining_args if hasattr(self, '_remaining_args') else []
+        run_cmd(args)
 
 def main():
     cli = FoundationCLI()
