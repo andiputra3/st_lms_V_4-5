@@ -17,12 +17,30 @@ import mimetypes
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
+from stlms.core.shell import STLMSShell
+
 WIB = timezone(timedelta(hours=7))
 ROOT = Path(__file__).parent.parent
 DB_PATH = ROOT / "stlms.db"
 SCHEMA_PATH = ROOT / "STLMS_SQLITE_SCHEMA_V1.sql"
 SECRET_PATTERNS = [r'ghp_[a-zA-Z0-9]{36}', r'sk-[a-zA-Z0-9\-]+', r'api[Kk]ey["\s:=]+[a-zA-Z0-9\-]+',
                    r'Bearer\s+[a-zA-Z0-9\-_\.]+', r'password["\s:=]+["\']?\S+', r'token["\s:=]+["\']?\S+']
+
+_shell_instance = None
+_shell_error = None
+
+def get_shell():
+    global _shell_instance, _shell_error
+    if _shell_instance is not None:
+        return _shell_instance, _shell_error
+    try:
+        _shell_instance = STLMSShell(symbol="BTCUSDT", timeframe="15m")
+        _shell_instance.generate(candle_count=200)
+        _shell_error = None
+    except Exception as e:
+        _shell_error = str(e)
+        _shell_instance = None
+    return _shell_instance, _shell_error
 
 def wib_now():
     return datetime.now(WIB).strftime("%Y-%m-%d %H:%M:%S WIB")
@@ -36,6 +54,53 @@ def repo_stats():
     return {"total_files": count_files(), "md_files": count_files(".md"), "py_files": count_files(".py"),
             "html_files": count_files(".html"), "sql_files": count_files(".sql"), "js_files": count_files(".js"),
             "last_update": wib_now()}
+
+def dict_to_html_table(d, depth=0):
+    """Render a dict as nested HTML tables. Lists are rendered as cards."""
+    if isinstance(d, list):
+        if not d:
+            return '<p class="mute">No items</p>'
+        html = '<div class="grid">'
+        for item in d:
+            if isinstance(item, dict):
+                html += f'<div class="card">{dict_to_html_table(item, depth+1)}</div>'
+            else:
+                html += f'<div class="card"><p>{str(item)}</p></div>'
+        html += '</div>'
+        return html
+    if not isinstance(d, dict):
+        return f'<p>{str(d)}</p>'
+    if not d:
+        return '<p class="mute">No data</p>'
+    rows = []
+    for k, v in d.items():
+        if k in ("available",):
+            continue
+        if isinstance(v, dict):
+            val_html = dict_to_html_table(v, depth + 1)
+        elif isinstance(v, list):
+            if not v:
+                val_html = '<span class="mute">empty</span>'
+            elif all(isinstance(i, dict) for i in v):
+                val_html = dict_to_html_table(v, depth + 1)
+            else:
+                val_html = ', '.join(str(i) for i in v)
+        elif isinstance(v, float):
+            val_html = f'{v:.4f}'
+        elif isinstance(v, bool):
+            val_html = f'<b class="{"pass" if v else "fail"}">{v}</b>'
+        else:
+            val_html = str(v)
+        rows.append(f'<tr><td style="width:30%"><b>{k}</b></td><td>{val_html}</td></tr>')
+    return f'<div class="tblwrap"><table>{"".join(rows)}</table></div>'
+
+def card_html(title, content, subtitle=None):
+    """Render content as a card."""
+    sub = f'<p class="mute">{subtitle}</p>' if subtitle else ''
+    return f'<div class="card"><h3>{title}</h3>{sub}{content}</div>'
+
+def no_data_html(message="No data loaded. Run shell.generate() first."):
+    return f'<div class="card"><p class="mute">⚠️ {message}</p></div>'
 
 def sqlite_stats():
     if not DB_PATH.exists(): return {"status": "Database not found"}
@@ -252,8 +317,12 @@ footer{text-align:center;color:var(--mute);font-size:.78em;margin:40px 0 16px;bo
 
 def page(title, body, nav_links=None):
     nav = '<div class="nav">'
-    links = nav_links or [("/","Home"),("/markdown","Markdown"),("/data-html","HTML Reports"),
-                          ("/architecture","Architecture"),("/pipeline","Pipeline"),
+    links = nav_links or [("/","Home"),("/truth","Truth"),("/timeline","Timeline"),("/events","Events"),
+                          ("/structure","Structure"),("/distance","Distance"),("/statistics","Statistics"),
+                          ("/prediction","Prediction"),("/recommendation","Recommendation"),
+                          ("/simulation","Simulation"),("/pipeline","Pipeline"),("/clone","Clone"),
+                          ("/markdown","Markdown"),("/data-html","HTML Reports"),
+                          ("/architecture","Architecture"),
                           ("/phases","Phases"),("/components","Components"),
                           ("/sqlite","SQLite"),("/contracts","Contracts"),("/tests","Tests"),
                           ("/repository","Repository"),("/cli","CLI"),("/market","Market")]
@@ -428,9 +497,19 @@ LAST BUILD:
 <p>Last Update: {stats['last_update']}</p></div>
 <div class="card"><h3>Quick Navigation</h3>
 <div class="grid">
+<a href="/truth">🔮 Truth — Current snapshot</a>
+<a href="/timeline">📊 Timeline — Truth range</a>
+<a href="/events">⚡ Events — Flip events</a>
+<a href="/structure">🏗️ Structure — Wave + Cage</a>
+<a href="/distance">📏 Distance — Metrics</a>
+<a href="/statistics">📈 Statistics — Market stats</a>
+<a href="/prediction">🔭 Prediction — Market possibility</a>
+<a href="/recommendation">📋 Recommendation — Report</a>
+<a href="/simulation">🧪 Simulation — 5 simulators</a>
+<a href="/pipeline">⚙️ Pipeline — Status</a>
+<a href="/clone">👥 Clone — Clone stats</a>
 <a href="/markdown">📄 Markdown Viewer (77 docs)</a>
 <a href="/architecture">🏗️ Architecture</a>
-<a href="/pipeline">⚙️ Pipeline (23 stages)</a>
 <a href="/phases">📋 Phases (20 phases)</a>
 <a href="/components">🧩 Components (17 core)</a>
 <a href="/sqlite">🗄️ SQLite (40 tables)</a>
@@ -510,8 +589,8 @@ g.previousElementSibling.style.display=visible?'':'none';g.style.display=visible
 </div></div>"""
             self.serve_html("Architecture", body); return
 
-        # ── PIPELINE ─────────────────────────────────────────
-        if path == "/pipeline":
+        # ── PIPELINE STAGES (static) ────────────────────────
+        if path == "/pipeline-stages":
             stages = [("0","ONCE","BOOT","BOOT"),("1","SHARED","MARKET OBSERVATION","MARKET"),("2","SHARED","TRUTH LAYER","TRUTH"),
                       ("3","SHARED","STRUCTURE LAYER","STRUCTURE"),("4","SHARED","EVIDENCE LAYER","EVIDENCE"),
                       ("5","PER-CLONE ×3","CLONE OBSERVATION","CLONE"),("6","PER-CLONE ×3","ENTRY VALIDATION","TRADE"),
@@ -526,7 +605,7 @@ g.previousElementSibling.style.display=visible?'':'none';g.style.display=visible
                       ("OPT","OPTIONAL","CONSUMER","CONSUMER")]
             rows = "".join(f"<tr><td>{s[0]}</td><td>{s[1]}</td><td>{s[2]}</td><td>{s[3]}</td></tr>" for s in stages)
             body = f"<div class=\"tblwrap\"><table><tr><th>Stage</th><th>Type</th><th>Name</th><th>Owner</th></tr>{rows}</table></div>"
-            self.serve_html("Pipeline (23 Stages)", body); return
+            self.serve_html("Pipeline Stages (23)", body); return
 
         # ── PHASES ───────────────────────────────────────────
         if path == "/phases":
@@ -733,6 +812,187 @@ python data_viewer/server.py
 <a href="/docs/stlms_fitur.md">Features Overview</a>
 </div></div>"""
             self.serve_html("Market Intelligence", body); return
+
+        # ── TRUTH ────────────────────────────────────────────
+        if path == "/truth":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Truth — Current Snapshot", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.truth_current()
+                if not data.get("available"):
+                    self.serve_html("Truth — Current Snapshot", no_data_html()); return
+                body = card_html("Truth — Current Snapshot", dict_to_html_table(data))
+                self.serve_html("Truth", body); return
+            except Exception as e:
+                self.serve_html("Truth — Current Snapshot", no_data_html(str(e))); return
+
+        # ── TIMELINE ─────────────────────────────────────────
+        if path == "/timeline":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Truth Timeline", no_data_html(err or "STLMSShell not available")); return
+            try:
+                # Use wide range to capture all fixture-generated truth points
+                data = shell.truth_timeline(0, 9_999_999_999_999)
+                if not data:
+                    self.serve_html("Truth Timeline", no_data_html()); return
+                # Show first 50 rows for performance
+                displayed = data[:50]
+                body = '<div class="tblwrap"><table><tr><th>ts</th><th>close</th><th>st</th><th>st_dir</th><th>st_color</th><th>atr</th><th>ema</th><th>rsi</th><th>wpr</th><th>macd_hist</th><th>dist</th><th>dist_atr</th><th>flip</th><th>point_status</th></tr>'
+                for row in displayed:
+                    body += '<tr>' + ''.join(f'<td>{row.get(k,"")}</td>' for k in ["ts","close","st","st_dir","st_color","atr","ema","rsi","wpr","macd_hist","dist","dist_atr","flip","point_status"]) + '</tr>'
+                body += '</table></div>'
+                self.serve_html(f"Truth Timeline ({len(data)} total, showing {len(displayed)})", body); return
+            except Exception as e:
+                self.serve_html("Truth Timeline", no_data_html(str(e))); return
+
+        # ── EVENTS ───────────────────────────────────────────
+        if path == "/events":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Truth Events", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.truth_events()
+                if not data:
+                    self.serve_html("Truth Events", '<div class="card"><p class="mute">No flip events</p></div>'); return
+                body = '<div class="card"><h3>Flip Events</h3><ul>'
+                for ev in data:
+                    body += f'<li><b>ts={ev["ts"]}</b> flip={ev["flip"]} st={ev["st"]} close={ev["close"]}</li>'
+                body += '</ul></div>'
+                self.serve_html(f"Truth Events ({len(data)} events)", body); return
+            except Exception as e:
+                self.serve_html("Truth Events", no_data_html(str(e))); return
+
+        # ── STRUCTURE ────────────────────────────────────────
+        if path == "/structure":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Structure", no_data_html(err or "STLMSShell not available")); return
+            try:
+                summary = shell.structure_summary()
+                wave = shell.wave_current()
+                cage = shell.cage_current()
+                body = ""
+                if summary.get("available"):
+                    body += card_html("Structure Summary", dict_to_html_table(summary))
+                else:
+                    body += no_data_html("No structure data")
+                if wave.get("available"):
+                    body += card_html("Current Wave", dict_to_html_table(wave))
+                if cage.get("available"):
+                    body += card_html("Current Cage", dict_to_html_table(cage))
+                if not body:
+                    body = no_data_html()
+                self.serve_html("Structure", body); return
+            except Exception as e:
+                self.serve_html("Structure", no_data_html(str(e))); return
+
+        # ── DISTANCE ─────────────────────────────────────────
+        if path == "/distance":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Distance", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.distance_summary()
+                if not data.get("available"):
+                    self.serve_html("Distance", no_data_html()); return
+                body = card_html("Distance Metrics", dict_to_html_table(data))
+                self.serve_html("Distance", body); return
+            except Exception as e:
+                self.serve_html("Distance", no_data_html(str(e))); return
+
+        # ── STATISTICS ───────────────────────────────────────
+        if path == "/statistics":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Statistics", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.statistics_market()
+                if not data.get("available"):
+                    self.serve_html("Statistics", no_data_html()); return
+                body = card_html("Market Statistics", dict_to_html_table(data))
+                self.serve_html("Statistics", body); return
+            except Exception as e:
+                self.serve_html("Statistics", no_data_html(str(e))); return
+
+        # ── PREDICTION ───────────────────────────────────────
+        if path == "/prediction":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Prediction", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.prediction_current()
+                if not data.get("available"):
+                    self.serve_html("Prediction", no_data_html()); return
+                body = card_html("Market Possibility Prediction", dict_to_html_table(data))
+                self.serve_html("Prediction", body); return
+            except Exception as e:
+                self.serve_html("Prediction", no_data_html(str(e))); return
+
+        # ── RECOMMENDATION ───────────────────────────────────
+        if path == "/recommendation":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Recommendation", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.recommendation_report()
+                if not data.get("available"):
+                    self.serve_html("Recommendation", no_data_html()); return
+                body = card_html("Market Intelligence Report", dict_to_html_table(data))
+                self.serve_html("Recommendation", body); return
+            except Exception as e:
+                self.serve_html("Recommendation", no_data_html(str(e))); return
+
+        # ── SIMULATION ───────────────────────────────────────
+        if path == "/simulation":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Simulation", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.simulation_results()
+                if not data.get("available"):
+                    self.serve_html("Simulation", no_data_html(data.get("error"))); return
+                body = card_html("Simulation Results", dict_to_html_table(data))
+                self.serve_html("Simulation", body); return
+            except Exception as e:
+                self.serve_html("Simulation", no_data_html(str(e))); return
+
+        # ── PIPELINE STATUS ──────────────────────────────────
+        if path == "/pipeline":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Pipeline Status", no_data_html(err or "STLMSShell not available")); return
+            try:
+                data = shell.pipeline_status()
+                if not data.get("available"):
+                    self.serve_html("Pipeline Status", no_data_html("Pipeline not run yet")); return
+                body = card_html("Pipeline Status", dict_to_html_table(data))
+                self.serve_html("Pipeline", body); return
+            except Exception as e:
+                self.serve_html("Pipeline Status", no_data_html(str(e))); return
+
+        # ── CLONE ────────────────────────────────────────────
+        if path == "/clone":
+            shell, err = get_shell()
+            if shell is None:
+                self.serve_html("Clone Stats", no_data_html(err or "STLMSShell not available")); return
+            try:
+                body = ""
+                for clone_id in ("LONG", "SHORT", "GRID"):
+                    try:
+                        stats = shell.statistics_clone(clone_id)
+                        if stats.get("available"):
+                            body += card_html(f"Clone: {clone_id}", dict_to_html_table(stats))
+                        else:
+                            body += card_html(f"Clone: {clone_id}", '<p class="mute">No statistics available</p>')
+                    except Exception as e:
+                        body += card_html(f"Clone: {clone_id}", f'<p class="fail">Error: {e}</p>')
+                if not body:
+                    body = no_data_html()
+                self.serve_html("Clone Stats", body); return
+            except Exception as e:
+                self.serve_html("Clone Stats", no_data_html(str(e))); return
 
         # ── HTML REPORTS ──────────────────────────────────────
         if path == "/data-html":
