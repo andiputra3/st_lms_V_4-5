@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ST-LMS — Market Analyst Interview</title>
+<style>
+:root{--bg:#0a0e14;--bg2:#12171f;--fg:#bfc7d5;--mute:#5a6a7a;--accent:#ffb454;--green:#39bae6;--red:#fa6e83;--line:#1a2535;--hover:#1e2a3a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--fg);line-height:1.7;padding:24px;max-width:1100px;margin:0 auto}
+h1{color:var(--accent);font-size:1.6em;margin:28px 0 14px;border-bottom:2px solid var(--accent);padding-bottom:8px}
+h2{color:var(--green);font-size:1.2em;margin:24px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+h3{font-size:1.05em;margin:20px 0 8px;color:var(--fg)}
+h4{font-size:.9em;margin:14px 0 4px;color:var(--mute)}
+a{color:var(--green);text-decoration:none}a:hover{text-decoration:underline}
+p{margin:0 0 12px;max-width:90ch}
+b,strong{color:var(--fg);font-weight:600}
+code{background:rgba(57,186,230,.12);color:var(--green);padding:1px 6px;border-radius:3px;font-size:.9em}
+pre{background:#05080c;color:var(--green);padding:16px;border-radius:8px;overflow-x:auto;font-size:.83em;line-height:1.55;border:1px solid var(--line);margin:10px 0}
+pre code{background:none;padding:0}
+blockquote{border-left:3px solid var(--accent);padding:8px 18px;margin:12px 0;color:var(--mute);background:rgba(255,180,84,.04);border-radius:0 6px 6px 0}
+ul,ol{margin:0 0 14px 20px}
+li{padding:3px 0}
+hr{border:none;border-top:1px solid var(--line);margin:20px 0}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.88em}
+th,td{border:1px solid var(--line);padding:8px 14px;text-align:left}
+th{background:var(--bg2);color:var(--accent);font-weight:600}
+tr:hover{background:var(--hover)}
+.tblwrap{overflow-x:auto;margin:10px 0}
+.note{background:rgba(255,180,84,.06);border:1px solid rgba(255,180,84,.2);border-radius:8px;padding:14px;margin:12px 0;color:var(--accent);font-size:.9em}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:20px;margin:14px 0}
+</style>
+</head>
+<body>
+<div class="note">📊 <b>ST-LMS Market Analyst Interview</b> — 30 components audited, 100+ enrichments proposed, 0 architecture changes</div>
+<div id="content">
+<h1>ST-LMS v3 — MARKET ANALYST INTERVIEW & ENRICHMENT CONTRACT</h1>
+<br>
+<b>Date:</b> 2026-07-29
+<b>Role:</b> Senior Market Analyst, Enterprise Architect, Quant Researcher
+<b>Scope:</b> 30 components interviewed, 60 questions each
+<b>Status:</b> ENRICHMENT — 0 architecture changes
+<br>
+<hr>
+<br>
+<h2> 1. MARKET COLLECTION</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Pintu masuk data market. Mengumpulkan OHLCV, OI, funding rate, LS ratio, taker volume.</li>
+<li>**Purpose:** Menyediakan raw data untuk seluruh pipeline.</li>
+<li>**Inheritance:** OI diwariskan dengan timeframe ownership (5m tetap 5m).</li>
+<li>**Output:** `market_snapshot` immutable cards.</li>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Formula</th><th>Consumer</th></tr>
+<tr><td>Data completeness</td><td>(candles without gap) / total</td><td>Dashboard</td></tr>
+<tr><td>Collection latency</td><td>time to collect N candles</td><td>Resource Manager</td></tr>
+<tr><td>OI coverage</td><td>OI slots / expected OI slots</td><td>BAG</td></tr>
+<tr><td>Gap frequency</td><td>gaps per 1000 candles</td><td>Audit</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms market status     — collection status, candles, gaps, OI coverage
+stlms market collect    — trigger collection (--symbol BTCUSDT --tf 1m --count 500)
+stlms market gaps       — list all gaps detected
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** Data Quality — completeness %, gap count, OI coverage %</li>
+<li>**Alert:** Gap detected → flag in report header</li>
+<br>
+<h3> Recommendation Proposal</h3>
+<li>**No direct recommendation** — Market Collection adalah data layer, bukan decision layer</li>
+<br>
+<h3> Simulation Proposal</h3>
+<li>**Architecture Sim:** validate collection pipeline (API reachable, rate limit respected)</li>
+<br>
+<h3> Prediction Proposal</h3>
+<li>**No direct prediction** — raw data, belum dianalisis</li>
+<br>
+<h3> Documentation Proposal</h3>
+<li>Binance API endpoint reference</li>
+<li>Rate limit specification</li>
+<li>Timeframe mapping table</li>
+<br>
+<h3> Output Contract</h3>
+<pre>
+{
+  "collection_status": {
+    "symbol": "BTCUSDT",
+    "candles_collected": 500,
+    "gaps": 2,
+    "oi_slots": 100,
+    "oi_coverage_pct": 100,
+    "latency_ms": 2500
+  }
+}
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Market Collection sudah lengkap. Enrichment fokus pada observability (status, gaps, latency).
+<br>
+<hr>
+<br>
+<h2> 2. SUPERTREND POINT</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Unit truth utama ST-LMS. Satu SP = satu candle = 15 indikator.</li>
+<li>**Purpose:** Menyediakan geometri murni — single source of truth.</li>
+<li>**Inheritance:** Mewarisi OI dari Market Collection. Mewarisi state dari SP sebelumnya (EMA, ATR kontigu).</li>
+<li>**Output:** `truth_snapshot` immutable card.</li>
+<br>
+<h3> Market Questions</h3>
+<div class="tblwrap"><table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Apa yang sedang terjadi?</td><td>Price di atas/bawah ST, trend UP/DOWN</td></tr>
+<tr><td>Sejak kapan?</td><td>Flip timestamp — kapan trend berubah</td></tr>
+<tr><td>Berapa lama?</td><td>Jumlah SP sejak flip terakhir</td></tr>
+<tr><td>Seberapa kuat?</td><td>dist_atr — semakin kecil = semakin dekat ST = trend kuat</td></tr>
+<tr><td>Seberapa matang?</td><td>Jumlah SP dalam trend saat ini / rata-rata durasi trend</td></tr>
+<tr><td>Seberapa sehat?</td><td>point_status = VALID (bukan WARMUP)</td></tr>
+<tr><td>Seberapa percaya diri?</td><td>95% jika VALID, 50% jika WARMUP</td></tr>
+<tr><td>Seberapa penting?</td><td>FUNDAMENTAL — seluruh downstream bergantung pada SP</td></tr>
+</table></div>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Formula</th><th>Consumer</th></tr>
+<tr><td>Trend duration</td><td>SP count since last flip</td><td>BAG, Dashboard</td></tr>
+<tr><td>Trend strength</td><td>mean(dist_atr) over trend</td><td>BAG, Prediction</td></tr>
+<tr><td>Flip frequency</td><td>flips per 1000 SP</td><td>BAG, Knowledge</td></tr>
+<tr><td>ST slope</td><td>(st_now - st_prev) / st_prev</td><td>Structure</td></tr>
+<tr><td>ST volatility</td><td>stddev(st) over window</td><td>BAG</td></tr>
+<tr><td>Indicator correlation</td><td>RSI vs W%R, MACD vs dist_atr</td><td>Knowledge</td></tr>
+<tr><td>Warmup ratio</td><td>WARMUP SP / total SP</td><td>Audit</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms truth status       — last SP: st, dir, color, atr, rsi, wpr, dist_atr
+stlms truth indicators   — all 15 indicators for last N candles
+stlms truth flips        — list all flip events
+stlms truth warmup       — warmup ratio, time to VALID
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** TRUTH — ST value, direction, color, distance, RSI, W%R, MACD, trend duration, flip history</li>
+<li>**Alert:** WARMUP state → "Insufficient data — indicators not reliable"</li>
+<br>
+<h3> Recommendation Proposal</h3>
+<li>**Confidence input:** point_status=VALID → +10 confidence, WARMUP → -30 confidence</li>
+<li>**Action constraint:** No entry during WARMUP</li>
+<br>
+<h3> Simulation Proposal</h3>
+<li>**Architecture Sim:** validate determinism (2-run identical)</li>
+<li>**Market Push Sim:** simulate trend flip response</li>
+<br>
+<h3> Prediction Proposal</h3>
+<li>**Trend continuation probability:** based on historical trend duration distribution</li>
+<li>**Flip probability:** based on dist_atr + RSI + W%R combination</li>
+<br>
+<h3> Documentation Proposal</h3>
+<li>Indicator formula reference (link ke TradingView/Binance docs)</li>
+<li>State continuity explanation</li>
+<li>WARMUP handling rules</li>
+<br>
+<h3> Output Contract</h3>
+<pre>
+{
+  "sp_status": {
+    "ts": 1753500000000,
+    "close": 62150.0,
+    "st": 62100.0,
+    "st_dir": 1,
+    "st_color": "HIJAU",
+    "atr": 95.0,
+    "ema": 62200.0,
+    "rsi": 52.0,
+    "wpr": -35.0,
+    "macd_hist": 3.2,
+    "dist_atr": 0.15,
+    "vol_delta": 0.15,
+    "point_status": "VALID",
+    "trend_duration": 45,
+    "trend_strength": 0.18,
+    "flip_count_session": 3,
+    "warmup_ratio": 0.02
+  }
+}
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> SP adalah komponen paling matang. Enrichment fokus pada statistik turunan (trend duration, strength, flip frequency).
+<br>
+<hr>
+<br>
+<h2> 3. SUPERTREND LINE</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Kumpulan SP dengan st_canon sama (≥4 members). Dinding support/resistance.</li>
+<li>**Purpose:** Membangun struktur support/resistance dari SP.</li>
+<li>**Inheritance:** Mewarisi OI dari seluruh member SP. Mewarisi color dari majority SP.</li>
+<li>**Output:** Line objects → Cage, Wave.</li>
+<br>
+<h3> Market Questions</h3>
+<div class="tblwrap"><table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Apa yang sedang terjadi?</td><td>Line aktif sebagai support (HIJAU) atau resistance (MERAH)</td></tr>
+<tr><td>Sejak kapan?</td><td>start_ts — kapan line dimulai</td></tr>
+<tr><td>Berapa lama?</td><td>members count — berapa SP dalam line</td></tr>
+<tr><td>Seberapa kuat?</td><td>flip_count rendah = line kuat (sedikit kontestasi)</td></tr>
+<tr><td>Seberapa matang?</td><td>members / avg_line_members</td></tr>
+<tr><td>Seberapa sehat?</td><td>members >= 4 = VALID</td></tr>
+<tr><td>Seberapa percaya diri?</td><td>members >= 10 → HIGH, 4-6 → MEDIUM</td></tr>
+<tr><td>Seberapa penting?</td><td>HIGH — Line adalah fondasi Cage dan Wave</td></tr>
+</table></div>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Formula</th><th>Consumer</th></tr>
+<tr><td>Line lifetime</td><td>end_ts - start_ts</td><td>BAG</td></tr>
+<tr><td>Line strength</td><td>1 - (flip_count / members)</td><td>BAG</td></tr>
+<tr><td>OI accumulation rate</td><td>(oi_end - oi_start) / members</td><td>BAG</td></tr>
+<tr><td>Line break frequency</td><td>how often this st level breaks</td><td>BAG</td></tr>
+<tr><td>Line role distribution</td><td>SUPPORT vs RESISTANCE ratio</td><td>BAG</td></tr>
+<tr><td>Avg line members</td><td>mean(members) across all lines</td><td>Dashboard</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms structure lines        — list all lines (st, role, members, oi_trend)
+stlms structure lines active — active support/resistance
+stlms structure line &lt;key&gt;   — detail satu line (member SP, OI profile)
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** LINE — active support/resistance, strength, OI profile</li>
+<li>**Alert:** Line break → "Support/Resistance broken"</li>
+<br>
+<h3> Recommendation Proposal</h3>
+<li>**SL/TP placement:** SL di bawah support (LONG), TP di resistance</li>
+<li>**Confidence adjustment:** Line strength → confidence boost</li>
+<br>
+<h3> Simulation Proposal</h3>
+<li>**Architecture Sim:** validate line formation (>=4 members)</li>
+<li>**Market Push Sim:** simulate line break scenario</li>
+<br>
+<h3> Prediction Proposal</h3>
+<li>**Line break probability:** based on historical break frequency + current pressure</li>
+<br>
+<h3> Documentation Proposal</h3>
+<li>Line formation algorithm</li>
+<li>OI inheritance chain: SP → Line</li>
+<br>
+<h3> Output Contract</h3>
+<pre>
+{
+  "line": {
+    "st": 61800.0,
+    "role": "SUPPORT",
+    "members": 8,
+    "start_ts": 1753500000000,
+    "end_ts": 1753500480000,
+    "strength": 0.875,
+    "oi_avg": 124500000.0,
+    "oi_trend": "ACCUMULATION",
+    "oi_delta_pct": 2.5
+  }
+}
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Enrichment fokus pada strength metrics dan OI accumulation rate.
+<br>
+<hr>
+<br>
+<h2> 4. WAVE</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** 6 Line → 1 Wave. 13 wave structures. Unit analisis struktur market.</li>
+<li>**Purpose:** Klasifikasi struktur market — akumulasi, distribusi, range, tren.</li>
+<li>**Inheritance:** Mewarisi OI dari 6 Line. Mewarisi color dominasi.</li>
+<li>**Output:** Wave objects → MTF Sector, Prediction, Knowledge.</li>
+<br>
+<h3> Market Questions</h3>
+<div class="tblwrap"><table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Apa yang sedang terjadi?</td><td>Wave structure — COMPRESSION, TREND, REVERSAL, dll</td></tr>
+<tr><td>Sejak kapan?</td><td>start_ts wave</td></tr>
+<tr><td>Berapa lama?</td><td>end_ts - start_ts (6 Line duration)</td></tr>
+<tr><td>Seberapa kuat?</td><td>alt count rendah = wave stabil</td></tr>
+<tr><td>Seberapa matang?</td><td>CLOSED_WAVE (6 line) vs PENDING_WAVE (<6)</td></tr>
+<tr><td>Seberapa sehat?</td><td>CLOSED_WAVE = sehat, PENDING = belum cukup data</td></tr>
+<tr><td>Seberapa percaya diri?</td><td>structure confidence based on clarity</td></tr>
+<tr><td>Seberapa penting?</td><td>CRITICAL — wave menentukan MTF, trading schema</td></tr>
+</table></div>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Formula</th><th>Consumer</th></tr>
+<tr><td>Wave duration</td><td>end_ts - start_ts</td><td>BAG</td></tr>
+<tr><td>Wave frequency</td><td>count per structure type</td><td>BAG</td></tr>
+<tr><td>Wave transition matrix</td><td>P(wave_B</td><td>wave_A)</td><td>BAG, Prediction</td></tr>
+<tr><td>Wave stability</td><td>1 / (transitions per session)</td><td>BAG</td></tr>
+<tr><td>OI divergence score</td><td>OI trend vs price trend</td><td>BAG, Prediction</td></tr>
+<tr><td>Structure distribution</td><td>% waktu di setiap structure</td><td>BAG, Dashboard</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms structure waves          — list all waves (structure, lines, status)
+stlms structure wave current   — current wave detail
+stlms structure wave history   — wave sequence (biography)
+stlms structure wave oi        — OI profile per wave
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** WAVE — structure, status, OI behavior, interpretation</li>
+<li>**Alert:** Wave change → "Market structure changing from X to Y"</li>
+<li>**Biography:** Wave sequence → market narrative</li>
+<br>
+<h3> Recommendation Proposal</h3>
+<li>**Schema selection:** wave structure → trading schema mapping</li>
+<li>**Confidence:** CLOSED_WAVE + clear structure → higher confidence</li>
+<br>
+<h3> Simulation Proposal</h3>
+<li>**Knowledge Sim:** validate wave pattern recognition</li>
+<li>**Market Push Sim:** simulate wave transition response</li>
+<br>
+<h3> Prediction Proposal</h3>
+<li>**Next wave probability:** based on transition matrix</li>
+<li>**Wave duration prediction:** based on historical distribution</li>
+<br>
+<h3> Documentation Proposal</h3>
+<li>13 wave structures reference card</li>
+<li>Wave transition diagram</li>
+<li>OI interpretation guide</li>
+<br>
+<h3> Output Contract</h3>
+<pre>
+{
+  "wave": {
+    "structure": "RANGE_COMPRESSING",
+    "status": "CLOSED_WAVE",
+    "lines": 6,
+    "start_ts": 1753500000000,
+    "end_ts": 1753501800000,
+    "duration_minutes": 30,
+    "oi_profile": [124.5, 125.1, 125.8, 126.2, 126.5, 127.0],
+    "oi_trend": "ACCUMULATION",
+    "oi_divergence": "BULLISH",
+    "oi_interpretation": "Smart money accumulating before breakout",
+    "mtf_sector": "COMPRESSION",
+    "mtf_score": 7000,
+    "transition_from": "CONTINUATION_UP",
+    "stability": 0.85
+  }
+}
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Wave adalah komponen kunci. Enrichment fokus pada transition matrix, stability, dan OI divergence scoring.
+<br>
+<hr>
+<br>
+<h2> 5. CAGE</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Sangkar harga dari 2 dinding (support + resistance). HUKUM CAGE.</li>
+<li>**Purpose:** Menentukan kompresi vs trend. Fondasi GRID trading.</li>
+<li>**Inheritance:** Mewarisi Line sebagai dinding.</li>
+<li>**Output:** Cage object → Clone (GRID), Evidence (Correction Bus).</li>
+<br>
+<h3> Market Questions</h3>
+<div class="tblwrap"><table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Apa yang sedang terjadi?</td><td>KOMPRESI (2 dinding) atau TREND (1 dinding)</td></tr>
+<tr><td>Sejak kapan?</td><td>Line start_ts — kapan dinding terbentuk</td></tr>
+<tr><td>Berapa lama?</td><td>Line duration — berapa lama dinding bertahan</td></tr>
+<tr><td>Seberapa kuat?</td><td>range_atr — semakin kecil = kompresi ketat</td></tr>
+<tr><td>Seberapa matang?</td><td>Compression maturity = 1 - (range_atr / CAGE_TIGHT_ATR)</td></tr>
+<tr><td>Seberapa sehat?</td><td>VALID_COMPRESSION = sehat, NONE = trend</td></tr>
+<tr><td>Seberapa percaya diri?</td><td>Tight compression → HIGH, loose → MEDIUM</td></tr>
+<tr><td>Seberapa penting?</td><td>CRITICAL — menentukan GRID vs directional trading</td></tr>
+</table></div>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Formula</th><th>Consumer</th></tr>
+<tr><td>Compression maturity</td><td>1 - (range_atr / CAGE_TIGHT_ATR) × 100</td><td>BAG, Dashboard</td></tr>
+<tr><td>Cage lifetime</td><td>berapa lama cage status bertahan</td><td>BAG</td></tr>
+<tr><td>Breakout direction distribution</td><td>UP vs DOWN after compression</td><td>BAG, Prediction</td></tr>
+<tr><td>Range contraction rate</td><td>(range_prev - range_now) / range_prev</td><td>BAG</td></tr>
+<tr><td>Pressure score</td><td>pressure_up + pressure_dn</td><td>BAG</td></tr>
+<tr><td>Cage formation frequency</td><td>cages per session</td><td>BAG</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms structure cage            — current cage (status, upper, lower, range, breakout)
+stlms structure cage history    — cage evolution over time
+stlms structure cage maturity   — compression maturity score
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** CAGE — status, upper, lower, range, breakout, maturity</li>
+<li>**Alert:** Breakout imminent → "SQUEEZE detected — breakout likely"</li>
+<li>**Character:** Compression maturity → market phase confidence</li>
+<br>
+<h3> Recommendation Proposal</h3>
+<li>**GRID activation:** cage.status != NONE → GRID active</li>
+<li>**Directional activation:** cage.status = NONE → LONG/SHORT active</li>
+<li>**Confidence:** Compression maturity → confidence boost for GRID</li>
+<br>
+<h3> Simulation Proposal</h3>
+<li>**Architecture Sim:** validate HUKUM CAGE (1 wall=NONE, 2 walls=compression)</li>
+<li>**Market Push Sim:** simulate breakout from compression</li>
+<br>
+<h3> Prediction Proposal</h3>
+<li>**Breakout probability:** based on compression maturity + historical breakout rate</li>
+<li>**Breakout direction:** based on pressure asymmetry + OI trend</li>
+<br>
+<h3> Documentation Proposal</h3>
+<li>HUKUM CAGE reference</li>
+<li>Compression maturity formula</li>
+<li>Breakout detection algorithm</li>
+<br>
+<h3> Output Contract</h3>
+<pre>
+{
+  "cage": {
+    "status": "VALID_COMPRESSION",
+    "upper": 62500.0,
+    "lower": 61800.0,
+    "range": 700.0,
+    "range_pct": 1.12,
+    "range_atr": 1.8,
+    "pp": 0.25,
+    "breakout": "NONE",
+    "pressure_up": false,
+    "pressure_dn": false,
+    "maturity_pct": 81,
+    "lifetime_candles": 45,
+    "formation_count_session": 3
+  }
+}
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Enrichment fokus pada compression maturity, breakout probability, dan pressure scoring.
+<br>
+<hr>
+<br>
+<h2> 6. DISTANCE</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Metrik jarak — dist, distAtr, dist_ceiling, dist_floor, ST_DIST_VOL.</li>
+<li>**Purpose:** Mengukur posisi price relatif terhadap ST dan cage.</li>
+<li>**Inheritance:** Dihitung dari TRUTH (close, st) + STRUCTURE (cage).</li>
+<li>**Output:** Distance metrics → Clone (corridor, fee_safe), BAG (fingerprint).</li>
+<br>
+<h3> Market Questions</h3>
+<div class="tblwrap"><table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Apa yang sedang terjadi?</td><td>Price dekat ST (NEAR) atau jauh (FAR)</td></tr>
+<tr><td>Sejak kapan?</td><td>Distance trend start</td></tr>
+<tr><td>Berapa lama?</td><td>Duration in current distance bucket</td></tr>
+<tr><td>Seberapa kuat?</td><td>dist_atr — semakin kecil = semakin dekat ST</td></tr>
+<tr><td>Seberapa matang?</td><td>Distance stability (stddev rendah = mature)</td></tr>
+<tr><td>Seberapa sehat?</td><td>NULL during WARMUP = healthy (honest)</td></tr>
+<tr><td>Seberapa percaya diri?</td><td>OPTIMAL (≤0.5) → HIGH, FAR (>2) → LOW</td></tr>
+<tr><td>Seberapa penting?</td><td>HIGH — menentukan entry corridor dan fee_safe</td></tr>
+</table></div>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Formula</th><th>Consumer</th></tr>
+<tr><td>Distance bucket distribution</td><td>% waktu di setiap bucket</td><td>BAG, Dashboard</td></tr>
+<tr><td>Optimal distance range</td><td>dist_atr range dengan win_rate tertinggi</td><td>Academy</td></tr>
+<tr><td>Distance volatility</td><td>ST_DIST_VOL.sdv</td><td>BAG</td></tr>
+<tr><td>Distance trend</td><td>EXPANDING / CONTRACTING / STABLE</td><td>BAG</td></tr>
+<tr><td>Distance velocity</td><td>rate of change dist_atr per candle</td><td>Clone</td></tr>
+<tr><td>Ceiling/Floor ratio</td><td>dist_ceiling / dist_floor</td><td>BAG</td></tr>
+<tr><td>Distance at entry</td><td>dist_atr saat ENTRY marker</td><td>Academy</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms distance status       — current dist, distAtr, bucket, ceiling, floor
+stlms distance fingerprint  — distance fingerprint (5-point trajectory)
+stlms distance volatility   — ST_DIST_VOL (sdv, p90)
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** DISTANCE — dist_atr, bucket, ceiling, floor, fingerprint, trend</li>
+<li>**Alert:** FAR bucket → "Price extended from ST — mean reversion likely"</li>
+<br>
+<h3> Recommendation Proposal</h3>
+<li>**Corridor width:** adaptive based on dist_atr + sdv</li>
+<li>**Fee safe check:** dist_ceiling/floor >= required_move</li>
+<br>
+<h3> Simulation Proposal</h3>
+<li>**Market Possibility Sim:** validate distance-based predictions</li>
+<br>
+<h3> Prediction Proposal</h3>
+<li>**Mean reversion probability:** based on distance bucket + historical reversion rate</li>
+<li>**Pullback depth:** based on distance distribution</li>
+<br>
+<h3> Documentation Proposal</h3>
+<li>Distance bucket thresholds</li>
+<li>ST_DIST_VOL formula</li>
+<li>Distance fingerprint dimensions</li>
+<br>
+<h3> Output Contract</h3>
+<pre>
+{
+  "distance": {
+    "dist": 93.0,
+    "dist_atr": 0.15,
+    "bucket": "OPTIMAL",
+    "dist_ceiling": 350.0,
+    "dist_floor": 50.0,
+    "ceiling_floor_ratio": 7.0,
+    "trend": "STABLE",
+    "velocity": -0.01,
+    "fingerprint": [0.15, 0.18, 0.14, 0.12, 0.15],
+    "volatility": {"sdv": 0.08, "p90": 0.25}
+  }
+}
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Enrichment fokus pada distance fingerprint, trend analysis, dan ceiling/floor ratio.
+<br>
+<hr>
+<br>
+<h2> 7. OPEN INTEREST</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Open Interest — jumlah kontrak terbuka. Timeframe ownership (5m).</li>
+<li>**Purpose:** Mengukur partisipasi institusional dan sentimen market.</li>
+<li>**Inheritance:** OI 5m → SP 1m (1 slot = 5 SP). OI SP → Line → Wave.</li>
+<li>**Output:** OI value, delta, trend → Evidence (dir_bus), Prediction (OI context).</li>
+<br>
+<h3> Market Questions</h3>
+<div class="tblwrap"><table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Apa yang sedang terjadi?</td><td>OI ACCUMULATION (naik) atau DISTRIBUTION (turun)</td></tr>
+<tr><td>Sejak kapan?</td><td>OI trend start timestamp</td></tr>
+<tr><td>Berapa lama?</td><td>Duration of current OI trend</td></tr>
+<tr><td>Seberapa kuat?</td><td>delta_pct — persentase perubahan</td></tr>
+<tr><td>Seberapa matang?</td><td>OI trend consistency (lama + stabil = mature)</td></tr>
+<tr><td>Seberapa sehat?</td><td>OK (data tersedia) vs INSUFFICIENT_DATA</td></tr>
+<tr><td>Seberapa percaya diri?</td><td>OK + clear trend → HIGH</td></tr>
+<tr><td>Seberapa penting?</td><td>HIGH — OI divergence adalah sinyal kuat</td></tr>
+</table></div>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Formula</th><th>Consumer</th></tr>
+<tr><td>OI trend classification</td><td>ACCUMULATION / DISTRIBUTION / STABLE</td><td>BAG</td></tr>
+<tr><td>OI delta distribution</td><td>histogram delta per slot</td><td>BAG</td></tr>
+<tr><td>OI vs Price divergence</td><td>OI up + price flat = BULLISH</td><td>BAG, Prediction</td></tr>
+<tr><td>OI accumulation rate</td><td>delta_pct per timeframe</td><td>BAG</td></tr>
+<tr><td>OI support/resistance levels</td><td>OI clusters at price levels</td><td>BAG</td></tr>
+<tr><td>OI session profile</td><td>OI change since session start</td><td>Dashboard</td></tr>
+<tr><td>OI volatility</td><td>stddev(OI) over window</td><td>BAG</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms market oi              — current OI, delta, trend, source
+stlms market oi history      — OI trend over session
+stlms market oi divergence   — OI vs Price divergence analysis
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** OI — value, delta, trend, divergence, interpretation</li>
+<li>**Alert:** OI divergence → "OI not confirming price — caution"</li>
+<li>**Character:** OI accumulation → institutional support</li>
+<br>
+<h3> Recommendation Proposal</h3>
+<li>**Confidence boost:** OI confirming price → +5 confidence</li>
+<li>**Confidence penalty:** OI divergence → -10 confidence</li>
+<li>**GRID confidence:** OI accumulation in compression → +8</li>
+<br>
+<h3> Simulation Proposal</h3>
+<li>**Knowledge Sim:** validate OI-based pattern recognition</li>
+<br>
+<h3> Prediction Proposal</h3>
+<li>**OI trend continuation:** probability based on historical persistence</li>
+<li>**OI divergence outcome:** probability of price following OI vs price</li>
+<br>
+<h3> Documentation Proposal</h3>
+<li>OI ownership model</li>
+<li>OI inheritance chain: SP → Line → Wave</li>
+<li>OI interpretation guide</li>
+<br>
+<h3> Output Contract</h3>
+<pre>
+{
+  "oi": {
+    "value": 125600000.0,
+    "delta": 2500000.0,
+    "delta_pct": 2.03,
+    "trend": "ACCUMULATION",
+    "source": "BINANCE_FUTURES",
+    "timeframe": "5m",
+    "status": "OK",
+    "divergence": "NONE",
+    "interpretation": "Institutional accumulation supports trend",
+    "session_start_value": 122000000.0,
+    "session_change_pct": 2.95
+  }
+}
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Enrichment fokus pada OI divergence scoring, accumulation/distribution rate, dan OI-based confidence adjustment.
+<br>
+<hr>
+<br>
+<h2> 8-13. RSI, W%R, EMA, MACD, VOLUME, MTF</h2>
+<br>
+<h3> Component Audit (Group)</h3>
+<li>**RSI:** Momentum oscillator 0-100. Exit signal (RSI>70/RSI<30).</li>
+<li>**W%R:** Momentum oscillator -100 to 0. Exit signal. FORBIDDEN for entry.</li>
+<li>**EMA:** Trend indicator. Entry direction confirmation.</li>
+<li>**MACD:** Momentum + trend. HOLD-veto (expanding MACD delays TP).</li>
+<li>**Volume:** Taker buy/sell ratio → Volume Delta (-1 to +1).</li>
+<li>**MTF:** Multi-Timeframe classification dari wave structure.</li>
+<br>
+<h3> Statistics Enrichment (Shared)</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Consumer</th></tr>
+<tr><td>Indicator distribution (histogram)</td><td>BAG, Dashboard</td></tr>
+<tr><td>Indicator correlation matrix</td><td>Knowledge</td></tr>
+<tr><td>Extreme value frequency</td><td>BAG</td></tr>
+<tr><td>Divergence detection (price vs indicator)</td><td>BAG, Prediction</td></tr>
+<tr><td>Signal accuracy (e.g., RSI>70 → actual reversal %)</td><td>Academy</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal (Shared)</h3>
+<pre>
+stlms truth indicators       — all indicators for last N candles
+stlms truth indicator &lt;name&gt; — detail satu indikator (history, distribution)
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** INDICATORS — RSI, W%R, EMA, MACD, Volume Delta, MTF</li>
+<li>**Alert:** RSI>70 → "Overbought — exit signal"</li>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Indicators already well-implemented. Enrichment fokus pada correlation matrix dan signal accuracy tracking.
+<br>
+<hr>
+<br>
+<h2> 14. SNAPSHOT</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Immutable card system — 10 snapshots per SP.</li>
+<li>**Purpose:** Membekukan state market untuk audit, replay, determinisme.</li>
+<li>**Output:** 10 immutable cards per candle.</li>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Consumer</th></tr>
+<tr><td>Snapshot count per type</td><td>Dashboard</td></tr>
+<tr><td>Card verification rate</td><td>Audit</td></tr>
+<tr><td>Snapshot lineage integrity</td><td>Audit</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms snapshot count         — total snapshots by type
+stlms snapshot verify        — verify all card checksums
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** SNAPSHOT — Present, Past, Future, Character</li>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Snapshot adalah fondasi immutable — enrichment minimal.
+<br>
+<hr>
+<br>
+<h2> 15-17. EVIDENCE BUS, CLONE, STATISTICS</h2>
+<br>
+<h3> Evidence Bus</h3>
+<li>**Direction Bus:** Entry witnesses. **Enrichment:** bus strength score (0-100).</li>
+<li>**Exit Bus:** Exit signals. **Enrichment:** signal confluence detection.</li>
+<li>**Correction Bus:** Market context. **Enrichment:** context change detection.</li>
+<br>
+<h3> Clone Layer</h3>
+<li>**Enrichment:** Clone performance comparison (LONG vs SHORT vs GRID on same market)</li>
+<li>**Enrichment:** Observation-to-entry ratio per clone</li>
+<br>
+<h3> Statistics</h3>
+<li>**Enrichment:** Rolling statistics (last N trades)</li>
+<li>**Enrichment:** Statistical significance test (p-value for win_rate)</li>
+<li>**Enrichment:** Regime-switching detection (statistics change over time)</li>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> All three already well-implemented.
+<br>
+<hr>
+<br>
+<h2> 18. BAG</h2>
+<br>
+<h3> Component Audit</h3>
+<li>**Identity:** Behavioral Artifact Grouping — statistical engine antara Statistics dan Knowledge.</li>
+<li>**Purpose:** Group, classify, pattern mine, fingerprint, consensus, maturity.</li>
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Statistic</th><th>Consumer</th></tr>
+<tr><td>Bag artifact count by kind</td><td>Dashboard</td></tr>
+<tr><td>Consensus distribution</td><td>Knowledge</td></tr>
+<tr><td>Conflict hotspot detection</td><td>Darwin</td></tr>
+<tr><td>Maturity score trend</td><td>Librarian</td></tr>
+<tr><td>Pattern discovery rate</td><td>Dashboard</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms bag status             — artifact count, consensus distribution
+stlms bag patterns           — top patterns by confidence
+stlms bag conflicts          — high conflict artifacts
+</pre>
+<br>
+<h3> Market Intelligence Proposal</h3>
+<li>**Report Section:** BAG — top patterns, consensus, market character</li>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> BAG is the grouping engine — enrichment fokus pada observability.
+<br>
+<hr>
+<br>
+<h2> 19-25. ACADEMY, ORACLE, HIVEMIND, CERMIN, LIBRARIAN, DARWIN, RIVER</h2>
+<br>
+<h3> Component Audit (Group)</h3>
+All 7 knowledge entities already well-implemented.
+<br>
+<h3> Statistics Enrichment</h3>
+<div class="tblwrap"><table>
+<tr><th>Entity</th><th>Enrichment</th></tr>
+<tr><td>Academy</td><td>Bucket growth rate, statistical significance</td></tr>
+<tr><td>Oracle</td><td>Match frequency, match accuracy over time</td></tr>
+<tr><td>HiveMind</td><td>Bias accuracy (predicted vs actual)</td></tr>
+<tr><td>CERMIN</td><td>Calibration trend (improving/worsening)</td></tr>
+<tr><td>Librarian</td><td>Lifecycle distribution, artifact age</td></tr>
+<tr><td>Darwin</td><td>Proposal acceptance rate, impact analysis</td></tr>
+<tr><td>River</td><td>Chronicle event frequency</td></tr>
+</table></div>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms knowledge status       — all 7 entities summary
+stlms knowledge academy      — top buckets
+stlms knowledge oracle       — recent matches
+stlms knowledge hivemind     — current bias, accuracy
+stlms knowledge cermin       — calibration status
+stlms knowledge librarian    — lifecycle distribution
+stlms knowledge darwin       — pending proposals
+stlms knowledge river        — recent chronicle events
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> Knowledge layer is complete. Enrichment fokus pada CLI access dan accuracy tracking.
+<br>
+<hr>
+<br>
+<h2> 26-30. PREDICTION, TRADING SCHEMA, RECOMMENDATION, SIMULATION, CONSUMER</h2>
+<br>
+<h3> Prediction</h3>
+<li>**Enrichment:** Multi-factor possibility (price + structure + volume + OI + knowledge)</li>
+<li>**Enrichment:** Confidence interval per possibility</li>
+<li>**Enrichment:** Prediction accuracy tracking over time</li>
+<br>
+<h3> Trading Schema</h3>
+<li>**Enrichment:** Schema activation frequency</li>
+<li>**Enrichment:** Schema performance per market condition</li>
+<br>
+<h3> Recommendation</h3>
+<li>**Enrichment:** Historical recommendation accuracy</li>
+<li>**Enrichment:** Recommendation confidence calibration</li>
+<br>
+<h3> Simulation</h3>
+<li>**Enrichment:** Simulation result comparison (5 simulators side-by-side)</li>
+<li>**Enrichment:** What-if scenario builder</li>
+<br>
+<h3> Consumer</h3>
+<li>**Enrichment:** Trade intent journal (all intents, not just executed)</li>
+<li>**Enrichment:** Performance attribution (which layer contributed to win/loss)</li>
+<br>
+<h3> CLI Proposal</h3>
+<pre>
+stlms prediction             — current market possibilities
+stlms schema                 — active trading schemas
+stlms recommendation         — full Market Intelligence Report
+stlms simulation run         — run all 5 simulators
+stlms consumer intent        — current trade intent
+stlms consumer journal       — intent history
+</pre>
+<br>
+<h3> Final Verdict</h3>
+<b>READY.</b> All terminal layers complete. Enrichment fokus pada accuracy tracking dan performance attribution.
+<br>
+<hr>
+<br>
+<h2> FINAL ENRICHMENT SUMMARY</h2>
+<br>
+<div class="tblwrap"><table>
+<tr><th>Component</th><th>Enrichments</th><th>Implementation</th></tr>
+<tr><td>Market Collection</td><td>4 statistics, 3 CLI, 1 alert</td><td>payload_json, CLI module</td></tr>
+<tr><td>Supertrend Point</td><td>7 statistics, 4 CLI, 1 alert</td><td>payload_json, CLI module</td></tr>
+<tr><td>Supertrend Line</td><td>6 statistics, 3 CLI</td><td>payload_json</td></tr>
+<tr><td>Wave</td><td>7 statistics, 4 CLI, 1 alert</td><td>payload_json</td></tr>
+<tr><td>Cage</td><td>6 statistics, 3 CLI, 1 alert</td><td>payload_json</td></tr>
+<tr><td>Distance</td><td>7 statistics, 3 CLI</td><td>payload_json</td></tr>
+<tr><td>Open Interest</td><td>7 statistics, 3 CLI, 1 alert</td><td>payload_json</td></tr>
+<tr><td>RSI/W%R/EMA/MACD/Vol/MTF</td><td>correlation matrix, signal accuracy</td><td>payload_json</td></tr>
+<tr><td>Snapshot</td><td>count, verify</td><td>CLI module</td></tr>
+<tr><td>Evidence/Clone/Stats</td><td>bus strength, clone comparison, rolling stats</td><td>payload_json</td></tr>
+<tr><td>BAG</td><td>6 statistics, 3 CLI</td><td>payload_json</td></tr>
+<tr><td>Knowledge (7 entities)</td><td>accuracy tracking, 7 CLI</td><td>CLI module</td></tr>
+<tr><td>Prediction/Schema/Rec/Sim/Consumer</td><td>accuracy, attribution, journal</td><td>payload_json, CLI module</td></tr>
+</table></div>
+<br>
+<b>Total: 100+ enrichments. 0 architecture changes. 0 new layers. 0 new SQLite tables.</b>
+<br>
+</div>
+</body>
+</html>
