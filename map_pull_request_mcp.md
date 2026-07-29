@@ -134,3 +134,26 @@ Ready For Review: YES
 2. Proses **STOP** — tidak ada auto-merge
 3. User merge manual di GitHub
 4. Setelah merge, user bisa minta PR berikutnya
+
+---
+
+## GitHub Synchronization Rule
+
+```
+User says "sync github" atau "sinkronisasi github"
+       │
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ STEP 1: git fetch origin — ambil state terbaru dari GitHub    │
+│ STEP 2: Bandingkan local vs origin/main                       │
+│ STEP 3: Jika GitHub ada file yang TIDAK ada di local          │
+│         → git pull origin main (ambil dari GitHub)            │
+│ STEP 4: Jika local ada file yang TIDAK ada di GitHub          │
+│         → git push origin main (kirim ke GitHub)              │
+│ STEP 5: Jika branch build/* di local belum di-push            │
+│         → git push origin build/*                             │
+│ STEP 6: Status final: local = GitHub                          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Rule:** Sinkronisasi = cek apa yang di GitHub belum ada, ambil dari local. Cek apa di local belum ada di GitHub, ambil dari GitHub. Hasil akhir: local dan GitHub identik.
