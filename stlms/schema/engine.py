@@ -36,6 +36,32 @@ ENTRY_SCHEMAS = {
     "GRID_EXPANSION": {"confidence": "LOW", "risk": "HIGH"},
 }
 
+EXIT_SCHEMAS = {
+    "TP1_FAST": {"type": "TAKE_PROFIT", "risk": "LOW", "target_pct": 1.0},
+    "TP2_STRUCTURE": {"type": "TAKE_PROFIT", "risk": "MEDIUM", "target_pct": 2.0},
+    "TP3_EXTENDED": {"type": "TAKE_PROFIT", "risk": "HIGH", "target_pct": 3.0},
+    "SL_ATR": {"type": "STOP_LOSS", "risk": "LOW", "multiplier": 1.5},
+    "SL_STRUCTURE": {"type": "STOP_LOSS", "risk": "MEDIUM", "multiplier": 2.0},
+    "SL_TRAILING": {"type": "STOP_LOSS", "risk": "LOW", "trail_pct": 0.5},
+    "BE_CROSS": {"type": "BREAKEVEN", "risk": "LOW"},
+    "TIME_EXIT": {"type": "TIME_BASED", "risk": "MEDIUM", "max_bars": 20},
+    "REVERSAL_EXIT": {"type": "SIGNAL_BASED", "risk": "MEDIUM"},
+    "VOLATILITY_EXIT": {"type": "VOLATILITY_BASED", "risk": "HIGH"},
+}
+
+RISK_SCHEMAS = {
+    "CONSERVATIVE": {"position_pct": 1.0, "max_drawdown": 5.0, "risk_per_trade": 0.5},
+    "MODERATE": {"position_pct": 2.0, "max_drawdown": 10.0, "risk_per_trade": 1.0},
+    "AGGRESSIVE": {"position_pct": 5.0, "max_drawdown": 20.0, "risk_per_trade": 2.0},
+    "SCALPING": {"position_pct": 0.5, "max_drawdown": 2.0, "risk_per_trade": 0.25},
+    "SWING": {"position_pct": 3.0, "max_drawdown": 15.0, "risk_per_trade": 1.5},
+    "POSITION": {"position_pct": 7.0, "max_drawdown": 25.0, "risk_per_trade": 3.0},
+    "ADAPTIVE": {"position_pct": 2.0, "max_drawdown": 10.0, "risk_per_trade": 1.0},
+    "HEDGED": {"position_pct": 4.0, "max_drawdown": 8.0, "risk_per_trade": 1.5},
+    "GRID_RISK": {"position_pct": 1.5, "max_drawdown": 7.0, "risk_per_trade": 0.75},
+    "MOMENTUM": {"position_pct": 3.0, "max_drawdown": 12.0, "risk_per_trade": 2.0},
+}
+
 
 class SchemaEngine:
     """Trading Schema — menentukan schema berdasarkan market condition."""
@@ -86,3 +112,32 @@ class SchemaEngine:
     
     def get_active_clones(self, market_schema: str) -> list[str]:
         return MARKET_SCHEMAS.get(market_schema, {}).get("active", [])
+
+    def select_exit_schema(self, entry_schema: str, market_schema: str,
+                           atr: float, price: float) -> str:
+        if market_schema in ("COMPRESSION", "RANGE"):
+            return "TP1_FAST"
+        if "BREAKOUT" in entry_schema:
+            return "TP2_STRUCTURE"
+        if "REVERSAL" in entry_schema:
+            return "SL_STRUCTURE"
+        if "CONTINUATION" in entry_schema:
+            return "TP3_EXTENDED"
+        return "SL_ATR"
+
+    def select_risk_schema(self, market_schema: str, prediction: dict,
+                           win_rate: float = 0) -> str:
+        score = prediction.get("intelligence_score", 5000)
+        bias = prediction.get("dominant_bias", "NEUTRAL")
+
+        if market_schema in ("CHAOS", "EXHAUSTION", "WARMUP"):
+            return "CONSERVATIVE"
+        if market_schema in ("COMPRESSION", "RANGE"):
+            return "GRID_RISK"
+        if win_rate > 65 and score > 7000:
+            return "AGGRESSIVE"
+        if win_rate > 55 and score > 6000:
+            return "MODERATE"
+        if bias == "NEUTRAL":
+            return "ADAPTIVE"
+        return "CONSERVATIVE"

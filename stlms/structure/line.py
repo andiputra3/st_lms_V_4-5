@@ -35,6 +35,22 @@ class Line:
     oi_end: Optional[float] = None
     oi_trend: str = "STABLE"  # ACCUMULATION / DISTRIBUTION / STABLE
     oi_delta_pct: float = 0.0
+    
+    # ── Evolution Enrichment (MARKET_OBSERVATION_CONTRACT) ──
+    line_id: str = ""
+    lifecycle_state: str = "NEW"
+    age_candles: int = 0
+    mutation_count: int = 0
+    reliability_score: float = 0.0
+    strength: float = 0.0
+    continuation_rate: float = 0.0
+    survival_rate: float = 0.0
+    historical_occurrences: int = 0
+    dna_similarity: float = 0.0
+    market_character: str = ""
+    best_clone: str = ""
+    worst_clone: str = ""
+    death_reason: str = ""
 
 
 class LineBuilder:

@@ -476,7 +476,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="ST-LMS Interactive CLI")
     parser.add_argument("--db", default="stlms.db", help="SQLite database path")
     parser.add_argument("--symbol", default="BTCUSDT", help="Trading symbol")
-    parser.add_argument("--timeframe", default="15m", help="Candle timeframe")
+    parser.add_argument("--timeframe", default="1m", help="Candle timeframe")
     parser.add_argument("--candles", type=int, default=500, help="Fixture candle count")
     args = parser.parse_args()
 
