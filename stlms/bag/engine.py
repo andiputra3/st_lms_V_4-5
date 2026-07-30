@@ -134,3 +134,83 @@ class BAGEngine:
             ))
         
         return artifacts
+    
+    # ── Market DNA Extraction (MARKET_OBSERVATION_CONTRACT) ──
+    
+    def extract_dna(self, waves: list, cages: list, truth_points: list) -> dict:
+        """
+        Extract Market DNA — compressed fingerprint dari observasi.
+        
+        Returns:
+            dict dengan dna_profile
+        """
+        # Wave structure distribution
+        wave_dist = {}
+        for w in waves:
+            s = getattr(w, 'structure', 'UNKNOWN')
+            wave_dist[s] = wave_dist.get(s, 0) + 1
+        
+        # Cage status distribution
+        cage_dist = {}
+        for c in cages:
+            s = getattr(c, 'status', 'NONE')
+            cage_dist[s] = cage_dist.get(s, 0) + 1
+        
+        # Average metrics
+        dist_atrs = [p.dist_atr for p in truth_points if hasattr(p, 'dist_atr') and p.dist_atr]
+        atrs = [p.atr for p in truth_points if hasattr(p, 'atr') and p.atr]
+        rsis = [p.rsi for p in truth_points if hasattr(p, 'rsi') and p.rsi]
+        
+        return {
+            "dna_profile": {
+                "wave_distribution": wave_dist,
+                "cage_distribution": cage_dist,
+                "avg_dist_atr": round(sum(dist_atrs) / len(dist_atrs), 3) if dist_atrs else 0,
+                "avg_atr": round(sum(atrs) / len(atrs), 1) if atrs else 0,
+                "avg_rsi": round(sum(rsis) / len(rsis), 1) if rsis else 50,
+                "total_observations": len(truth_points),
+            }
+        }
+    
+    def analyze_character(self, wave_dist: dict, cage_dist: dict) -> dict:
+        """
+        Analyze Historical Market Character dari distribution data.
+        
+        Returns:
+            dict dengan market_character profile
+        """
+        # Determine dominant wave
+        dominant_wave = max(wave_dist, key=wave_dist.get) if wave_dist else "UNKNOWN"
+        
+        # Determine market regime
+        compression_pct = (cage_dist.get("VALID_COMPRESSION", 0) + cage_dist.get("LOOSE_SIDEWAY", 0)) / sum(cage_dist.values()) * 100 if cage_dist else 0
+        trend_pct = cage_dist.get("NONE", 0) / sum(cage_dist.values()) * 100 if cage_dist else 0
+        
+        if compression_pct > 60:
+            regime = "RANGE_BOUND"
+        elif trend_pct > 60:
+            regime = "TRENDING"
+        else:
+            regime = "MIXED"
+        
+        # Determine profile
+        if "CONTINUATION" in dominant_wave or "STRONG" in dominant_wave:
+            profile = "TREND_FOLLOWING"
+        elif "RANGE" in dominant_wave or "COMPRESSION" in dominant_wave or "SIDEWAY" in dominant_wave:
+            profile = "MEAN_REVERSION"
+        elif "REVERSAL" in dominant_wave:
+            profile = "REVERSAL_HUNTER"
+        elif "EXHAUSTION" in dominant_wave:
+            profile = "EXHAUSTION_DETECTOR"
+        else:
+            profile = "ADAPTIVE"
+        
+        return {
+            "market_character": {
+                "dominant_wave": dominant_wave,
+                "regime": regime,
+                "profile": profile,
+                "compression_pct": round(compression_pct, 1),
+                "trend_pct": round(trend_pct, 1),
+            }
+        }

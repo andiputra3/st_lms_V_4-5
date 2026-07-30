@@ -38,6 +38,27 @@ class Wave:
     oi_trend: str = "STABLE"
     oi_divergence: str = "NONE"
     oi_interpretation: str = ""
+    
+    # ── Evolution Enrichment (MARKET_OBSERVATION_CONTRACT) ──
+    wave_id: str = ""
+    lifecycle_state: str = "NEW"
+    age_candles: int = 0
+    evolution: dict = field(default_factory=lambda: {
+        "breakout": 0, "continuation": 0, "reversal": 0,
+        "compression": 0, "expansion": 0
+    })
+    continuation_rate: float = 0.0
+    breakout_rate: float = 0.0
+    reversal_rate: float = 0.0
+    reliability_score: float = 0.0
+    historical_occurrences: int = 0
+    dna_similarity: float = 0.0
+    profit_profile: dict = field(default_factory=lambda: {
+        "dominant_clone": "", "best_clone": "", "worst_clone": "",
+        "historical_expectancy": 0.0
+    })
+    market_character: str = ""
+    prediction_context: dict = field(default_factory=dict)
 
 
 class WaveBuilder:

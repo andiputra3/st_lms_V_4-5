@@ -105,7 +105,7 @@ WAVE_MTF_TABLE: dict = {
 ORACLE_VECTOR_SIZE: int = 9
 
 # ── Pipeline ───────────────────────────────────────────────────
-PIPELINE_STAGES: int = 22
+PIPELINE_STAGES: int = 23
 SHARED_STAGES: tuple = (1, 2, 3, 4)
 PER_CLONE_STAGES: tuple = (5, 6, 7, 8, 9, 10, 11)
 SHARED_AGAIN_STAGES: tuple = (12, 13, 14, 16, 17, 18, 19, 20, 21, 22)
@@ -124,3 +124,12 @@ CHRONICLE_MAX: int = 6000
 QUERY_RESULT_LIMIT: int = 10000
 QUERY_TIMEOUT_MS: int = 30000
 WORKER_TIMEOUT_MS: int = 120000
+
+# ── Market Observation Memory ──────────────────────────────────
+# 48000 = 33 hari × 8 jam × 60 menit
+# Reference: MARKET_OBSERVATION_CONTRACT.md
+MARKET_OBSERVATION_MEMORY: int = 48000
+
+# ── Collection System ─────────────────────────────────────────────
+BINANCE_MAX_KLINES_PER_REQUEST: int = 1500
+COLLECTION_DEFAULT_TARGET: int = MARKET_OBSERVATION_MEMORY  # 48000

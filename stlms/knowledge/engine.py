@@ -94,21 +94,106 @@ class HiveMindEngine:
     """Market understanding synthesis. NOT a signal."""
     
     def synthesize(self, academy_results: list[dict], oracle_match: dict,
-                   evidence_adj: float = 0) -> dict:
+                   evidence_adj: float = 0, evolution_context: dict = None) -> dict:
         top = academy_results[0] if academy_results else None
         pattern_boost = (top["win_rate"] / 100) * 2000 if top else 0
         oracle_boost = (oracle_match["score"] / 10000) * 2000 if oracle_match["match"] else 0
         
         score = max(0, min(10000, 5000 + pattern_boost + oracle_boost + evidence_adj))
+        
+        historical_learning = []
+        evolution_adj = 0
+        
+        if evolution_context:
+            ctx = evolution_context
+            
+            flip_rate = ctx.get("flip_rate", 0)
+            mutation_rate = ctx.get("mutation_rate", 0)
+            survival_rate = ctx.get("survival_rate", 0)
+            continuation_rate = ctx.get("continuation_rate", 0)
+            breakout_rate = ctx.get("breakout_rate", 0)
+            reversal_rate = ctx.get("reversal_rate", 0)
+            market_character = ctx.get("market_character", {})
+            dna_similarity = ctx.get("dna_similarity", 0)
+            wave_id = ctx.get("wave_id", "?")
+            oracle_outcome = ctx.get("oracle_outcome")
+            oracle_score = ctx.get("oracle_score", 0)
+            
+            if flip_rate > 30:
+                instability = (flip_rate / 100) * 800
+                evolution_adj -= instability
+                historical_learning.append(
+                    f"High flip rate ({flip_rate}%) — structure is unstable, reduce confidence"
+                )
+            
+            if mutation_rate > 20:
+                volatility = (mutation_rate / 100) * 600
+                evolution_adj -= volatility
+                historical_learning.append(
+                    f"High mutation rate ({mutation_rate}%) — market is unstable, reduce position size"
+                )
+            
+            if survival_rate > 60:
+                stability = (survival_rate / 100) * 600
+                evolution_adj += stability
+                historical_learning.append(
+                    f"High survival rate ({survival_rate}%) — structure is resilient"
+                )
+            
+            if continuation_rate > 50:
+                if score > 5000:
+                    continuation_boost = (continuation_rate / 100) * 500
+                    evolution_adj += continuation_boost
+                historical_learning.append(
+                    f"Strong continuation pattern ({continuation_rate}%) — trend likely to persist"
+                )
+            
+            if breakout_rate > 30:
+                activity = (breakout_rate / 100) * 400
+                evolution_adj += activity
+                historical_learning.append(
+                    f"High breakout rate ({breakout_rate}%) — market is active"
+                )
+            
+            if reversal_rate > 30:
+                choppiness = (reversal_rate / 100) * 500
+                evolution_adj -= choppiness
+                historical_learning.append(
+                    f"High reversal rate ({reversal_rate}%) — market is choppy, reduce conviction"
+                )
+            
+            if market_character:
+                profile = market_character.get("profile", "")
+                regime = market_character.get("regime", "")
+                dominant_wave = market_character.get("dominant_wave", "")
+                if profile:
+                    historical_learning.append(
+                        f"Market character: {profile} (regime: {regime}, dominant: {dominant_wave})"
+                    )
+            
+            if dna_similarity > 0:
+                pct = round(dna_similarity * 100, 1)
+                bias_hint = ""
+                if oracle_outcome:
+                    bias_hint = f" — historically favored {oracle_outcome}"
+                historical_learning.append(
+                    f"{pct}% similar to Wave #{wave_id}{bias_hint}"
+                )
+        
+        score = max(0, min(10000, score + evolution_adj))
         bias = "BULLISH" if score > 6500 else ("BEARISH" if score < 3500 else "NEUTRAL")
         
-        return {
+        result = {
             "intelligence_score": round(score),
             "dominant_bias": bias,
             "pattern_boost": round(pattern_boost),
             "oracle_boost": round(oracle_boost),
             "evidence_adj": evidence_adj,
+            "evolution_adj": round(evolution_adj),
+            "historical_learning": historical_learning,
         }
+        
+        return result
 
 
 class LibrarianEngine:

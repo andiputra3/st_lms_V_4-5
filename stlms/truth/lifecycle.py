@@ -77,3 +77,55 @@ class SPLifecycleManager:
     def reset(self):
         self._current = None
         self._history.clear()
+
+
+# ── Evolution Lifecycle ──────────────────────────────────────
+# Separate from pipeline lifecycle. Tracks SP maturity over time.
+# Reference: MARKET_OBSERVATION_CONTRACT.md
+
+class EvolutionLifecycle(Enum):
+    NEW = "NEW"
+    LIVE = "LIVE"
+    UPDATE = "UPDATE"
+    MATURE = "MATURE"
+    FREEZE = "FREEZE"
+    ARCHIVE = "ARCHIVE"
+
+
+_EVOLUTION_TRANSITIONS = {
+    None: {EvolutionLifecycle.NEW},
+    EvolutionLifecycle.NEW: {EvolutionLifecycle.LIVE},
+    EvolutionLifecycle.LIVE: {EvolutionLifecycle.UPDATE, EvolutionLifecycle.MATURE},
+    EvolutionLifecycle.UPDATE: {EvolutionLifecycle.UPDATE, EvolutionLifecycle.MATURE},
+    EvolutionLifecycle.MATURE: {EvolutionLifecycle.FREEZE},
+    EvolutionLifecycle.FREEZE: {EvolutionLifecycle.ARCHIVE},
+    EvolutionLifecycle.ARCHIVE: set(),
+}
+
+
+class EvolutionLifecycleManager:
+    """Tracks SP evolution state (maturity over time)."""
+    
+    def __init__(self):
+        self._current: Optional[EvolutionLifecycle] = None
+        self._history: list = []
+    
+    @property
+    def current(self) -> Optional[EvolutionLifecycle]:
+        return self._current
+    
+    def transition(self, to_state: EvolutionLifecycle) -> bool:
+        if not self.can_transition(to_state):
+            return False
+        self._current = to_state
+        self._history.append(to_state.value)
+        return True
+    
+    def can_transition(self, to_state: EvolutionLifecycle) -> bool:
+        if self._current is None:
+            return True
+        return to_state in _EVOLUTION_TRANSITIONS.get(self._current, set())
+    
+    def reset(self):
+        self._current = None
+        self._history.clear()

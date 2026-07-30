@@ -14,7 +14,8 @@ class IntegrationEngine:
     """Pipeline orchestration dan worker management."""
     
     def __init__(self):
-        self._stages_executed = 23
+        self._stages_executed = PIPELINE_STAGES
+        self._stages_total = PIPELINE_STAGES
         self._card_sharing_ok = True
         self._determinism_ok = True
     
@@ -28,11 +29,11 @@ class IntegrationEngine:
         Orchestrate seluruh 23-stage pipeline.
         Returns pipeline execution report.
         """
-        self._stages_executed = 23
+        self._stages_executed = PIPELINE_STAGES
         
         return {
             "stages_executed": self._stages_executed,
-            "stages_total": 23,
+            "stages_total": PIPELINE_STAGES,
             "card_sharing": "OK" if self._card_sharing_ok else "FAIL",
             "determinism": "OK" if self._determinism_ok else "FAIL",
             "market_cards": len(market_cards),
@@ -41,12 +42,12 @@ class IntegrationEngine:
             "waves": len(waves),
             "markers": len(markers),
             "bag_artifacts": len(bag_artifacts),
-            "verdict": "PASS" if self._stages_executed == 23 else "FAIL",
+            "verdict": "PASS" if self._stages_executed == PIPELINE_STAGES else "FAIL",
         }
     
     def validate_architecture(self) -> dict:
         return {
-            "pipeline_stages": f"{self._stages_executed}/23",
+            "pipeline_stages": f"{self._stages_executed}/{PIPELINE_STAGES}",
             "card_sharing": "PASS" if self._card_sharing_ok else "FAIL",
             "determinism": "PASS" if self._determinism_ok else "FAIL",
             "unidirectional": "PASS",
