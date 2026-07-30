@@ -49,6 +49,10 @@ FAPI_EXCHANGE = "/fapi/v1/exchangeInfo"
 FAPI_PREMIUM = "/fapi/v1/premiumIndex"
 FAPI_LS_RATIO = "/futures/data/globalLongShortAccountRatio"
 FAPI_TAKER_VOL = "/futures/data/takerlongshortRatio"
+FAPI_LIQUIDATION = "/fapi/v1/forceOrders"
+FAPI_TICKER_24HR = "/fapi/v1/ticker/24hr"
+FAPI_ORDER_BOOK = "/fapi/v1/depth"
+FAPI_TRADES = "/fapi/v1/trades"
 MAX_KLINE_LIMIT = 1500  # Binance max per request
 RATE_LIMIT_DELAY = 0.05  # 50ms between requests (safe for 1200/min)
 
@@ -66,6 +70,9 @@ class MarketCollectionResult:
     collection_start_ms: int
     collection_end_ms: int
     gaps: list[int] = field(default_factory=list)
+    liquidations: dict = field(default_factory=dict)
+    ticker_24hr: dict = field(default_factory=dict)
+    order_book: dict = field(default_factory=dict)
 
 
 class MarketDataCollector:
@@ -347,6 +354,17 @@ class MarketDataCollector:
         return taker_data
     
     # ── Helpers ────────────────────────────────────────────────
+    def _fetch_liquidations(self, symbol, candles):
+        """Fetch liquidation orders. Stub — will be fully implemented."""
+        return {}
+
+    def _fetch_ticker_24hr(self, symbol):
+        """Fetch 24hr ticker. Stub — will be fully implemented."""
+        return {}
+
+    def _fetch_order_book(self, symbol, limit=100):
+        """Fetch order book snapshot. Stub — will be fully implemented."""
+        return {}
     
     def _rate_limited_get(self, url: str, timeout: int = 10) -> Optional[str]:
         """Rate-limited HTTP GET. Returns response body or None on failure."""

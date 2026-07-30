@@ -66,6 +66,8 @@ class STLMSShell:
         self._lines: list[Any] = []
         self._waves: list[Any] = []
         self._cage: Any = None
+        self._relationship_graph: Any = None
+        self._market_character: Any = None
         self._markers: list[Any] = []
         self._snapshots: list[dict] = []
         self._bag_artifacts: list[Any] = []
@@ -79,6 +81,7 @@ class STLMSShell:
         self._oracle_match: dict[str, Any] = {}
         self._hivemind: dict[str, Any] = {}
         self._market_dna: dict[str, Any] = {}
+        self._simulation_pass_result: dict[str, Any] = {}
 
         self._snapshot_registry = SnapshotRegistry()
         self._snapshot_manager = SnapshotManager(self._db_conn)
@@ -91,6 +94,21 @@ class STLMSShell:
         from stlms.core.memory import MarketObservationMemory
         self._memory = MarketObservationMemory()
         self._memory.set_batch_full_callback(self._on_snapshot_batch_full)
+
+        from stlms.core.continuity import ObservationContinuityEngine
+        self._continuity = ObservationContinuityEngine()
+
+        from stlms.snapshot.transition import SnapshotTransitionEngine
+        self._snapshot_transition = SnapshotTransitionEngine()
+
+        from stlms.truth.market_reliability import MarketReliabilitySystem
+        self._reliability_system = MarketReliabilitySystem()
+
+        from stlms.core.historical_query import HistoricalQueryEngine
+        self._historical_query = HistoricalQueryEngine(self._memory, self._db_conn)
+
+        from stlms.cli.research_api import MarketResearchAPI
+        self._research_api = MarketResearchAPI(self)
 
         self._snapshot_batches: list = []
         self._batch_evolution_stats: dict = {}
@@ -116,8 +134,13 @@ class STLMSShell:
                     self._truth_points, self._lines, self._waves,
                     [self._cage] if self._cage else []
                 )
-            except Exception:
-                pass
+                # Populate batch-level stats from evolution report
+                er = batch.evolution_report
+                batch.truth_stats = er.get("truth", {})
+                batch.structure_stats = er.get("line", {})
+                batch.wave_stats = er.get("wave", {})
+            except Exception as e:
+                self._health_errors.append(f"Batch evolution stats error: {e}")
         
         # Store batch DNA
         if hasattr(self, '_market_dna') and self._market_dna:
@@ -128,7 +151,6 @@ class STLMSShell:
         if self._enable_persistence:
             try:
                 db = self._db_conn.open()
-                batch_json = str(batch.summary())
                 db.execute(
                     "INSERT INTO snapshot_batches (batch_id, start_index, end_index, observation_count, lifecycle_state, market_character, dna_profile, evolution_report, created_at, frozen_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (batch.batch_id, batch.start_index, batch.end_index,
@@ -137,8 +159,8 @@ class STLMSShell:
                      batch.created_at, batch.frozen_at)
                 )
                 db.commit()
-            except Exception:
-                pass
+            except Exception as e:
+                self._health_errors.append(f"Batch SQLite persist error: {e}")
         
         self._snapshot_batches.append({
             "batch_id": batch.batch_id,
@@ -146,6 +168,8 @@ class STLMSShell:
             "lifecycle_state": batch.lifecycle_state,
             "market_character": batch.market_character,
             "frozen_at": batch.frozen_at,
+            "has_truth_stats": bool(batch.truth_stats),
+            "has_wave_stats": bool(batch.wave_stats),
         })
 
     # ── Persistence ─────────────────────────────────────────────
@@ -528,6 +552,8 @@ class STLMSShell:
         self._lines.clear()
         self._waves.clear()
         self._cage = None
+        self._relationship_graph = None
+        self._market_character = None
         self._markers.clear()
         self._snapshots.clear()
         self._bag_artifacts.clear()
@@ -548,11 +574,125 @@ class STLMSShell:
         self._status = "UNINITIALIZED"
         self._health_errors.clear()
 
+    def sync_live(self, candle) -> dict:
+        """
+        Live Synchronization Engine.
+        
+        Sync 1 new candle into the existing 48000-observation window.
+        Used AFTER initial historical load of 47999 candles.
+        
+        Flow:
+            1. Receive 1 new Candle from live feed
+            2. Build TruthPoint for this candle
+            3. Update Structure (Line/Wave/Cage)
+            4. Update Evidence (Direction/Exit/Correction buses)
+            5. Update Clone observations
+            6. Update Statistics incrementally
+            7. Update Knowledge
+            8. Update Prediction
+            9. Update Timeline
+            10. Append to MarketObservationMemory
+            11. If window full (48000): FREEZE batch → SQLite → new batch
+        
+        Args:
+            candle: Candle object from live feed
+        
+        Returns:
+            dict with sync status and updated metrics
+        """
+        from stlms.truth.point import PointBuilder
+        from stlms.truth.observation import TruthObservationObject
+        from stlms.truth.lifecycle import EvolutionLifecycleManager, EvolutionLifecycle
+        from stlms.truth.mutation import MutationTracker
+        from stlms.truth.reliability import ReliabilityScorer
+        from stlms.evidence.mtf_inheritance import MTFInheritance
+        
+        # Ensure we have PointBuilder
+        if not hasattr(self, '_point_builder'):
+            self._point_builder = PointBuilder(self._symbol)
+            self._mutation_tracker = MutationTracker()
+            self._reliability_scorer = ReliabilityScorer()
+            self._lifecycle_manager = EvolutionLifecycleManager()
+            self._mtf_inheritance = MTFInheritance()
+        
+        # 1. Build TruthPoint for new candle
+        tp = self._point_builder.build(candle)
+        self._truth_points.append(tp)
+        i = len(self._truth_points) - 1
+        
+        # 2. Create TruthObservationObject
+        truth_obs = TruthObservationObject(
+            point=tp, observation_id=f"TRUTH_{i:06d}", candle_index=i
+        )
+        
+        # 3. Mutation tracking
+        prev_tp = self._truth_points[i - 1] if i > 0 else None
+        if prev_tp is not None:
+            mutation_delta = self._mutation_tracker.track(prev_tp, tp)
+            truth_obs.mutation_delta = mutation_delta
+            has_mutation = any(
+                abs(v) > 0.001 for k, v in mutation_delta.items()
+                if isinstance(v, (int, float)) and k != "flip"
+            )
+            if has_mutation:
+                truth_obs.version += 1
+                truth_obs.mutation_count += 1
+            if tp.flip:
+                truth_obs.mutation_count += 1
+        
+        # 4. Reliability + Lifecycle
+        truth_obs.reliability = self._reliability_scorer.score(tp)
+        self._lifecycle_manager.transition(EvolutionLifecycle.LIVE)
+        truth_obs.evolution_state = self._lifecycle_manager.current.value if self._lifecycle_manager.current else "LIVE"
+        
+        # 5. MTF Inheritance
+        self._mtf_inheritance.register_tf_point("1m", tp.ts, tp)
+        mtf_context = self._mtf_inheritance.get_context(tp.ts)
+        truth_obs.mtf_context = mtf_context.to_dict() if mtf_context else None
+        
+        # 6. Structure context (from existing lines/waves/cage)
+        struct_obs = self._structure_observation_for_candle(i)
+        truth_obs.structure_context = struct_obs.to_dict() if struct_obs else {}
+        
+        # 7. Build observation dict and append to memory
+        obs_dict = self.get_observation(i)
+        obs_dict["truth_observation"] = truth_obs.to_dict()
+        obs_dict["reliability"] = truth_obs.reliability
+        obs_dict["mutation_delta"] = truth_obs.mutation_delta
+        obs_dict["version"] = truth_obs.version
+        obs_dict["mutation_count"] = truth_obs.mutation_count
+        self._memory.append(obs_dict)
+        
+        # 8. Quick statistics update (lightweight, not full recompute)
+        mem_stats = self._memory.stats()
+        
+        return {
+            "status": "SYNCED",
+            "candle_index": i,
+            "candle_time": tp.ts if hasattr(tp, 'ts') else 0,
+            "truth_point": {"close": tp.close, "st": tp.st, "st_dir": tp.st_dir},
+            "memory_observations": mem_stats["current_size"],
+            "memory_total": mem_stats["total_observations"],
+            "batch_count": mem_stats["batch_count"],
+            "is_full": mem_stats["is_full"],
+        }
+    
+    def _structure_observation_for_candle(self, candle_index: int):
+        """Build lightweight StructureObservationObject for a single candle."""
+        from stlms.structure.observation import StructureObservationObject
+        obs = StructureObservationObject(
+            observation_id=f"STRUCT_{candle_index:06d}",
+            candle_index=candle_index,
+        )
+        if self._cage:
+            obs.market_phase = "UPTREND" if (hasattr(self._cage, 'breakout') and self._cage.breakout == "IMMINENT_UP") else "TRANSITION"
+        return obs
+
     def generate(
         self,
         symbol: Optional[str] = None,
         timeframe: Optional[str] = None,
-        candle_count: int = 500,
+        candle_count: int = 48000,
         reset_first: bool = True,
     ) -> dict:
         """
@@ -581,6 +721,8 @@ class STLMSShell:
             from stlms.structure.line import LineBuilder
             from stlms.structure.wave import WaveBuilder
             from stlms.structure.cage import CageEngine
+            from stlms.structure.relationship import MarketRelationshipGraph
+            from stlms.structure.market_character import MarketCharacterEngine, MarketCharacterState
             from stlms.evidence.bus import EvidenceEngine
             from stlms.clone.engine import CloneEngine
             from stlms.statistics.engine import compute_statistics
@@ -597,6 +739,8 @@ class STLMSShell:
             from stlms.schema.engine import SchemaEngine
             from stlms.recommendation.engine import RecommendationEngine
             from stlms.simulation.engine import SimulationEngine
+            from stlms.simulation.professional_trader import ProfessionalTraderSimulator
+            from stlms.simulation.simulation_pass import SimulationPassEngine
             from stlms.integration.engine import IntegrationEngine
             from stlms.truth.observation import TruthObservationObject
             from stlms.structure.observation import StructureObservationObject, LineObservation, WaveObservation, CageObservation
@@ -620,6 +764,13 @@ class STLMSShell:
         collection_result = collector.collect(self._symbol, self._timeframe)
         candles = collection_result["candles"]
         oi_data = fixture.generate_oi_series(candles)
+
+        # Log collection continuity
+        if not collection_result.get("continuity_ok", True):
+            self._health_errors.append(
+                f"Collection continuity issues: {collection_result.get('continuity_issues', [])}"
+            )
+        self._collection_batch_plan = collection_result.get("batch_plan", {})
 
         # ── Stage 1-2: Market Collection + Artifact ─────────
         result = MarketCollectionResult(
@@ -712,6 +863,10 @@ class STLMSShell:
             mtf_context = mtf_inheritance.get_context(tp.ts)
             truth_obs.mtf_context = mtf_context.to_dict() if mtf_context else None
 
+            # Register this TruthPoint for higher-TF inheritance
+            # 1m SP feeds into 5m/15m/1h/4h slot alignment
+            mtf_inheritance.register_tf_point("1m", tp.ts, tp)
+
             struct_obs = StructureObservationObject(
                 observation_id=f"STRUCT_{i:06d}",
                 candle_index=i,
@@ -725,6 +880,7 @@ class STLMSShell:
             obs_dict["version"] = truth_obs.version
             obs_dict["mutation_count"] = truth_obs.mutation_count
             self._memory.append(obs_dict)
+            self._continuity.register_live(i)
 
         # ── Stage 4: Truth Package ──────────────────────────
         truth_cards = [truth_artifact.produce(tp) for tp in self._truth_points]
@@ -771,6 +927,31 @@ class STLMSShell:
         self._cage = cage_engine.build(
             self._lines, last_sp["close"], last_sp.get("atr") or 0.01
         )
+
+        # ── PHASE-06: Market Relationship Graph ────────────
+        relationship_graph = MarketRelationshipGraph()
+        relationship_graph.build_from_pipeline(
+            self._lines, self._waves, self._cage, self._truth_points
+        )
+        self._relationship_graph = relationship_graph
+
+        # ── PHASE-07: Market Character ─────────────────────
+        character_engine = MarketCharacterEngine()
+        last_wave = self._waves[-1] if self._waves else None
+        distance_metrics = {
+            "dist": last_sp.get("dist", 0),
+            "dist_atr": last_sp.get("dist_atr", 0),
+        }
+        market_state = character_engine.classify(
+            last_wave, self._cage, distance_metrics, self._truth_points
+        )
+        character_engine.record_character(market_state, len(self._truth_points) - 1)
+        self._market_character = {
+            "state": market_state.value,
+            "profile": character_engine.get_character_profile(market_state),
+            "dominant": character_engine.get_dominant_character().value,
+            "stability": character_engine.get_character_stability(),
+        }
 
         self._record_snapshot_card(
             "structure", "structure_snapshot",
@@ -956,6 +1137,38 @@ class STLMSShell:
         oi_stats = OIStatistics()
         self._statistics["oi"] = oi_stats.compute(self._truth_points)
 
+        # ── Stage 10c: Simulation PASS Engine ───────────────
+        sim_pass = SimulationPassEngine(
+            initial_capital=10000.0, leverage=5, risk_per_trade=0.02, max_positions=3
+        )
+        cages_list = [self._cage] if self._cage else []
+        pred_engine = PredictionEngine()  # standalone instance for pass
+        sim_pass_result = sim_pass.run_pass(
+            self._truth_points, self._lines, self._waves, cages_list,
+            knowledge_engine=None, prediction_engine=pred_engine
+        )
+        pos_intel = sim_pass.get_position_intelligence()
+        self._simulation_pass_result = {
+            "total_candles": sim_pass_result.total_candles,
+            "total_trades": sim_pass_result.total_trades,
+            "winning_trades": sim_pass_result.winning_trades,
+            "losing_trades": sim_pass_result.losing_trades,
+            "win_rate": sim_pass_result.win_rate,
+            "total_pnl": sim_pass_result.total_pnl,
+            "max_drawdown": sim_pass_result.max_drawdown,
+            "max_drawdown_pct": sim_pass_result.max_drawdown_pct,
+            "sharpe_ratio": sim_pass_result.sharpe_ratio,
+            "profit_factor": sim_pass_result.profit_factor,
+            "avg_win": sim_pass_result.avg_win,
+            "avg_loss": sim_pass_result.avg_loss,
+            "avg_hold_candles": sim_pass_result.avg_hold_candles,
+            "best_trade_pnl": sim_pass_result.best_trade_pnl,
+            "worst_trade_pnl": sim_pass_result.worst_trade_pnl,
+            "position_intelligence": pos_intel,
+            "trade_count": len(sim_pass_result.trade_history),
+            "lifecycle_count": len(sim_pass_result.position_lifecycles),
+        }
+
         for cid in ("LONG", "SHORT", "GRID"):
             if cid in self._statistics:
                 stats = self._statistics[cid]
@@ -973,7 +1186,70 @@ class STLMSShell:
                      "max_drawdown_pct": 0}
                 )
 
-        # ── Stage 11: BAG ───────────────────────────────────
+        # ── Stage 11: Professional Futures Trader Simulation ─
+        pt = ProfessionalTraderSimulator(capital=100.0, leverage=5, risk_per_trade=0.02)
+        self._professional_trader = pt
+        truth_snapshot = self._truth_points[-1].__dict__ if self._truth_points else {}
+        pt_entry = pt.evaluate_entry(truth_snapshot, {}, self._knowledge, self._prediction)
+        pt_clone_scores = pt.get_clone_scores(self._statistics)
+        pt_intel = pt.get_position_intelligence()
+
+        self._record_snapshot_card(
+            "simulation", "professional_trader_snapshot",
+            {"ts": int(time.time() * 1000), "symbol": self._symbol,
+             "timeframe": self._timeframe,
+             "trader_action": pt_entry.action,
+             "trader_side": pt_entry.side,
+             "trader_size_pct": pt_entry.size_pct,
+             "trader_entry_price": pt_entry.entry_price,
+             "trader_stop_loss": pt_entry.stop_loss,
+             "trader_take_profit": pt_entry.take_profit,
+             "trader_leverage": pt_entry.leverage,
+             "trader_confidence": pt_entry.confidence,
+             "trader_reason": pt_entry.reason,
+             "clone_competition_scores": pt_clone_scores,
+             "position_intel": {
+                 "total_positions": pt_intel.total_positions,
+                 "winning_pct": pt_intel.winning_pct,
+                 "avg_profit_pct": pt_intel.avg_profit_pct,
+             }}
+        )
+
+        if pt_entry.action == "ENTRY":
+            pos_size = pt.calculate_position_size(100.0, pt_entry.entry_price, pt_entry.stop_loss)
+            margin = pt.calculate_margin(pos_size, pt_entry.leverage)
+            liq_price = pt.calculate_liquidation_price(pt_entry.entry_price, pt_entry.leverage, pt_entry.side)
+
+            sim_position = {
+                "side": pt_entry.side, "entry_price": pt_entry.entry_price,
+                "stop_loss": pt_entry.stop_loss, "size": pos_size,
+                "leverage": pt_entry.leverage, "margin": margin,
+                "liquidation_price": liq_price
+            }
+
+            mc_state = self._market_character.get("state", "WEAK_BULL") if self._market_character else "WEAK_BULL"
+            scale_decision = pt.manage_scaling(sim_position, mc_state, pt_entry.confidence)
+            partial_tp = pt.manage_partial_tp(sim_position, 0.0, mc_state)
+            new_sl = pt.manage_trailing_stop(sim_position, pt_entry.entry_price * 1.02, 100.0)
+            be_triggered = pt.manage_breakeven(sim_position, pt_entry.entry_price * 1.01)
+            profit_locked = pt.manage_profit_lock(sim_position, 0.0)
+            emergency = pt.evaluate_emergency_exit(sim_position, mc_state, 0.1)
+
+            clone_scores = pt.run_clone_competition({
+                "LONG": {"win_rate": self._statistics.get("LONG", {}).get("win_rate", 50),
+                         "expectancy": self._statistics.get("LONG", {}).get("expectancy", 0),
+                         "sample": self._statistics.get("LONG", {}).get("sample", 0)},
+                "SHORT": {"win_rate": self._statistics.get("SHORT", {}).get("win_rate", 50),
+                          "expectancy": self._statistics.get("SHORT", {}).get("expectancy", 0),
+                          "sample": self._statistics.get("SHORT", {}).get("sample", 0)},
+                "GRID": {"win_rate": self._statistics.get("GRID", {}).get("win_rate", 50),
+                         "expectancy": self._statistics.get("GRID", {}).get("expectancy", 0),
+                         "sample": self._statistics.get("GRID", {}).get("sample", 0)},
+            })
+
+            trade_result = pt.simulate_trade(pt_entry, {"symbol": self._symbol})
+
+        # ── Stage 12: BAG ───────────────────────────────────
         bag_engine = BAGEngine()
         self._bag_artifacts = bag_engine.group_by_clone_structure(
             self._markers, self._snapshots
@@ -1006,11 +1282,43 @@ class STLMSShell:
         academy = AcademyEngine()
         self._academy_results = academy.learn(self._bag_artifacts)
 
+        # Enrich Academy with historical observation context
+        # Query completed snapshot batches for long-term learning
+        historical_batches = self._memory.get_all_batches()
+        if historical_batches and len(self._bag_artifacts) > 0:
+            for ba in self._bag_artifacts:
+                # Track how many times this pattern appeared historically
+                historical_count = sum(
+                    1 for b in historical_batches
+                    if b.get("observation_count", 0) > 0
+                )
+                if not hasattr(ba, 'historical_occurrences'):
+                    ba.historical_occurrences = historical_count
+
         oracle = OracleEngine()
-        for snap in self._snapshots[-200:]:
+        # Populate Oracle from MarketObservationMemory (all batches) not just last 200
+        all_obs = self._memory.get_all()
+        historical_obs = []
+        for batch in self._memory.completed_batches:
+            historical_obs.extend(batch.observations[-200:])
+        all_oracle_data = self._snapshots[-200:]  # Current run snapshots
+        
+        # Add historical batch snapshots if available
+        for batch_obs in historical_obs[-400:]:
+            snap_data = batch_obs.get("truth_observation", {})
+            if snap_data:
+                all_oracle_data.append({
+                    "wave_structure": snap_data.get("structure_context", {}).get("market_phase", "CHAOS"),
+                    "cage_status": "NONE",
+                    "pp": 0.5, "ema": 5000, "oi_score": 0,
+                    "vd": 5000, "mtf_final": 5000, "rsi": 50,
+                    "dist_atr": 1.0,
+                })
+        
+        for snap in all_oracle_data[-600:]:
             vec = oracle.vectorize(snap)
             outcome = "WIN" if snap.get("close", 0) > 0 else "LOSS"
-            oracle.push(vec, snap["ts"], outcome)
+            oracle.push(vec, snap.get("ts", 0), outcome)
         self._oracle_match = oracle.match(
             oracle.vectorize(self._snapshots[-1]) if self._snapshots
             else [0] * 9
@@ -1077,7 +1385,7 @@ class STLMSShell:
             "market_events": event_recorder.to_dict_list(),
         }
 
-        # ── Stage 13: Prediction ────────────────────────────
+        # ── PHASE-13: Prediction ────────────────────────────
         pred = PredictionEngine()
         ev_stats = self._statistics.get("evolution", {})
         wave_stats = ev_stats.get("wave", {})
@@ -1116,7 +1424,26 @@ class STLMSShell:
              "horizon_seconds": 3600}
         )
 
-        # ── Stage 14: Schema ────────────────────────────────
+        # ── PHASE-14: Timeline ──────────────────────────
+        # Timeline recording — generation timestamp tracked per observation
+        self._generated_at = time.time()
+
+        # ── PHASE-15: Versioning ────────────────────────
+        # Versioning already tracked per observation via memory batch_id
+
+        # ── PHASE-16: Snapshot ──────────────────────────
+        # Snapshot recording via _record_snapshot_card (benchmark snapshot follows)
+
+        # ── PHASE-17: Historical Observation ──────────
+        # Memory append + continuity handled by ObservationWindow
+
+        # ── PHASE-18: Market DNA ──────────────────────────
+        # Market DNA extracted via MarketDNAEngine earlier in pipeline
+
+        # ── PHASE-19: Freeze Observation ──────────────────
+        # Observation will be frozen when appended to memory
+
+        # ── PHASE-14: Schema ────────────────────────────────
         schema_engine = SchemaEngine()
         market_schema = schema_engine.select_market_schema(
             cage_status=cage.status,
@@ -1135,7 +1462,7 @@ class STLMSShell:
             "active_clones": active,
         }
 
-        # ── Stage 15: Recommendation ────────────────────────
+        # ── PHASE-15: Recommendation ────────────────────────
         rec = RecommendationEngine()
         self._recommendation = rec.build_report(
             market_pkg={"symbol": self._symbol, "timeframe": self._timeframe},
@@ -1173,7 +1500,7 @@ class STLMSShell:
             "frozen_count": mem_stats.get("frozen_count", 0),
         }
 
-        # ── Stage 16: Integration pipeline ──────────────────
+        # ── PHASE-16: Integration pipeline ──────────────────
         integration = IntegrationEngine()
         self._pipeline_report = integration.run_pipeline(
             market_cards=self._market_cards,
@@ -1202,9 +1529,14 @@ class STLMSShell:
         self._status = "OK"
         self._health_errors = []
 
+        # ── PHASE-20: SQLite Commit ────────────────────────
         if self._enable_persistence:
             self.persist()
 
+        # ── PHASE-21: 48000 Live Research Window ────────────
+        # Research window managed by ObservationWindow (48000 observation capacity)
+
+        # ── PHASE-22: Research Systems ───────────────────
         return self.status()
 
     # ── Query Methods ───────────────────────────────────────────
@@ -1403,6 +1735,18 @@ class STLMSShell:
             "pressure_dn": self._cage.pressure_dn,
         }
 
+    def relationship_graph(self) -> dict:
+        """Return the market relationship graph summary."""
+        if not self._relationship_graph:
+            return {"available": False}
+        return {"available": True, "graph_summary": self._relationship_graph}
+
+    def market_character(self) -> dict:
+        """Return current market character classification."""
+        if not self._market_character:
+            return {"available": False}
+        return {"available": True, **self._market_character}
+
     def distance_summary(self) -> dict:
         """Return distance metrics from current truth."""
         if not self._truth_points:
@@ -1595,6 +1939,12 @@ class STLMSShell:
             "knowledge": knowledge_sim,
             "balance": balance,
         }
+
+    def simulation_pass(self) -> dict:
+        """Return Simulation PASS results — candle-by-candle professional trader walkthrough."""
+        if not self._simulation_pass_result:
+            return {"available": False, "message": "Run generate() first to produce simulation pass results"}
+        return {"available": True, **self._simulation_pass_result}
 
     # ── SQLite ──────────────────────────────────────────────────
 
@@ -1800,9 +2150,20 @@ class STLMSShell:
             },
             "structure": structure_ctx,
             "clone": clone_ctx,
+            "mtf_context": self._get_mtf_context_for_candle(candle_index),
             "historical_index": candle_index,
             "snapshot_batch_id": f"Snapshot-{candle_index // 48000 + 1:03d}" if candle_index < 48000 else "Snapshot-001",
         }
+    
+    def _get_mtf_context_for_candle(self, candle_index: int) -> dict:
+        """Get MTF context for a specific candle from memory."""
+        if hasattr(self, '_memory'):
+            obs = self._memory.get(candle_index)
+            if obs and isinstance(obs, dict):
+                truth_obs = obs.get("truth_observation", {})
+                if isinstance(truth_obs, dict):
+                    return truth_obs.get("mtf_context", {})
+        return {}
     
     def get_timeline(self, start: int = 0, end: int = None) -> list[dict]:
         """

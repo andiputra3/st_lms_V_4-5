@@ -1,3 +1,9 @@
 .stlms_github.conf
 .stlms_github/
 __pycache__/
+venv/
+__pycache__/
+*.pyc
+nohup.out
+stlms.db
+data_viewer/venv/

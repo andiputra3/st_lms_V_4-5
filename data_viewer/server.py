@@ -30,10 +30,14 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 import urllib.parse
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
+
+# Ensure stlms is importable
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from stlms.core.shell import STLMSShell
 
@@ -372,6 +376,7 @@ NAV_LINKS = [
     ("/lifecycle", "Lifecycle"),
     ("/mutation", "Mutation"),
     ("/pipeline", "Pipeline"),
+    ("/v2.1", "v2.1"),
     ("/health-page", "Health"),
     ("/sqlite", "SQLite"),
     ("/config", "Config"),
@@ -1098,6 +1103,79 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html.encode())
 
+    def _serve_v21_page(self):
+        stages = [
+            ("01", "Raw Collector", "Collector", "Kumpulkan data mentah dari market feed + generate observation ID unik"),
+            ("02", "Observation Builder", "Processor", "Bangun struktur observasi dari data mentah dengan validasi"),
+            ("03", "Market", "Processor", "Analisis kondisi market: tren, volatilitas, likuiditas"),
+            ("04", "Truth", "Processor", "Komputasi TruthPoint: Supertrend, RSI, WPR, ATR, EMA, MACD"),
+            ("05", "Structure", "Processor", "Bangun struktur: Supertrend Line, Wave, Cage, Distance"),
+            ("06", "Evidence", "Processor", "Kumpulkan evidence bus: Direction, Exit, Correction"),
+            ("07", "Clone", "Producer", "Inisialisasi 3 clone: LONG, SHORT, GRID dengan parameter mandiri"),
+            ("08", "Statistics Engine", "Producer", "Hitung 7 domain statistik per clone: evolution, indicator, market, clone, correlation, distance, OI"),
+            ("09", "BAG Engine", "Producer", "Behavioral Aggregation Grouping: grouping, pattern mining, consensus scoring"),
+            ("10", "Knowledge Repository", "Producer", "Isi knowledge entities: Academy, Oracle, HiveMind, CERMIN, Darwin, River, Librarian"),
+            ("11", "Possibility Engine", "Producer", "Generate market possibilities dengan probability scoring empiris"),
+            ("12", "Professional Trader", "Producer", "Simulasi trading profesional: 5 simulator (Architecture, Market Possibility, Market Push, Knowledge, Balance)"),
+            ("13", "Recommendation", "Producer", "Bangun Market Intelligence Report: karakter, decision tree, rekomendasi aksi"),
+            ("14", "History Builder", "Enricher", "Bangun historical timeline dari semua observasi"),
+            ("15", "Snapshot Builder", "Enricher", "Capture snapshot entity state untuk persistence dan audit"),
+            ("16", "Historical Enricher", "Enricher", "Perkaya data historis dengan konteks tambahan dan korelasi"),
+            ("17", "DNA Builder", "Enricher", "Bangun Market DNA profile: karakter, distribusi wave, distribusi cage"),
+            ("18", "Freeze Engine", "Enricher", "Freeze state untuk immutability dan reproducibility"),
+            ("19", "SQLite Writer", "Persistence", "Tulis semua artifact ke SQLite database"),
+            ("20", "Memory Window", "Persistence", "Kelola observation memory window dengan kapasitas terbatas"),
+        ]
+        consumers = [
+            ("Replay", "Putar ulang data historis candle-by-candle"),
+            ("Statistics", "Akses 7 domain statistik kapan saja"),
+            ("Knowledge", "Akses Academy, Oracle, HiveMind, CERMIN, Darwin"),
+            ("Prediction", "Market Possibilities dengan probability scoring"),
+            ("Simulation", "5 simulator hasil trading profesional"),
+            ("Recommendation", "Market Intelligence Report lengkap"),
+        ]
+        srows = "".join(
+            f'<tr><td><b>{s[0]}</b></td><td>{s[1]}</td><td><span class="badge badge-{"done" if s[2] in ("Producer","Enricher","Persistence") else "md"}">{s[2]}</span></td><td class="mute">{s[3]}</td></tr>'
+            for s in stages)
+        crows = "".join(
+            f'<tr><td><b>{c[0]}</b></td><td class="mute">{c[1]}</td></tr>'
+            for c in consumers)
+
+        body = f"""
+<div class="card" style="border-color:var(--accent)">
+    <h3 style="color:var(--accent);margin:0 0 4px">ST-LMS v2.1 · Artifact Production Line</h3>
+    <p class="mute" style="margin:0">20-stage pipeline — setiap tahap satu tugas spesifik. Data mengalir searah tanpa backward loop.</p>
+</div>
+
+<div class="card">
+    <h3>20-Stage Pipeline</h3>
+    <div class="tblwrap">
+    <table>
+        <tr><th>#</th><th>Stage</th><th>Type</th><th>Task</th></tr>
+        {srows}
+    </table>
+    </div>
+</div>
+
+<div class="card" style="border-color:var(--green)">
+    <h3>6 Market Intelligence Consumers</h3>
+    <p class="mute">Consumers berjalan <b>SEPARATE</b> dari pipeline — on-demand, read-only, tidak mempengaruhi pipeline state.</p>
+    <div class="tblwrap">
+    <table>
+        <tr><th>Consumer</th><th>Fungsi</th></tr>
+        {crows}
+    </table>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Arsitektur</h3>
+    <p><b>Pipeline:</b> 01 Raw Collector → 02 Observation Builder → 03 Market → 04 Truth → 05 Structure → 06 Evidence → 07 Clone → 08 Statistics Engine → 09 BAG Engine → 10 Knowledge Repository → 11 Possibility Engine → 12 Professional Trader → 13 Recommendation → 14 History Builder → 15 Snapshot Builder → 16 Historical Enricher → 17 DNA Builder → 18 Freeze Engine → 19 SQLite Writer → 20 Memory Window</p>
+    <p style="margin-top:12px"><b>Consumers:</b> Replay · Statistics · Knowledge · Prediction · Simulation · Recommendation</p>
+    <p style="margin-top:12px"><b>CLI:</b> <code>python3 stlms.py run</code> (01-20) · <code>python3 stlms.py collect</code> (01-02) · <code>python3 stlms.py sync</code> (02-03) · <code>python3 stlms.py build</code> (info)</p>
+</div>"""
+        self.serve_html("v2.1 Architecture", body, "/v2.1")
+
     def serve_json(self, data):
         j = json.dumps(data, indent=2, default=str)
         self.send_response(200)
@@ -1317,6 +1395,10 @@ g.previousElementSibling.style.display=visible?'':'none';g.style.display=visible
         # ═══════════════════════════════════════════════════════════
         #  MAIN PAGES
         # ═══════════════════════════════════════════════════════════
+
+        if path == "/v2.1" or path == "/v21":
+            self._serve_v21_page()
+            return
 
         if path == "/":
             self.serve_html("Dashboard", build_dashboard(), "/", refresh)
@@ -1912,7 +1994,7 @@ python data_viewer/server.py
 
 
 if __name__ == "__main__":
-    PORT = 8082
+    PORT = 8085
     HOST = "0.0.0.0"
     import socketserver
     http.server.HTTPServer.allow_reuse_address = True

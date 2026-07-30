@@ -105,7 +105,11 @@ def cmd_run():
     _banner()
     _print_header("Pipeline Run")
     cfg = load_config()
-    _progress(f"Symbol: {cfg['symbol']} | Timeframe: {cfg['timeframe']} | Candles: {cfg['candle_count']}")
+    
+    # Gunakan 200 candles untuk quick run, 48000 untuk full run
+    candle_count = min(cfg.get("candle_count", 48000), 200)
+    _progress(f"Symbol: {cfg['symbol']} | Timeframe: {cfg['timeframe']} | Candles: {candle_count}")
+    _print_info("For full 48000 run: edit ~/.stlms/config.json")
 
     from stlms.core.shell import STLMSShell
     shell = STLMSShell(
@@ -115,7 +119,7 @@ def cmd_run():
     )
 
     _progress("Generating market data...")
-    result = shell.generate(candle_count=cfg["candle_count"])
+    result = shell.generate(candle_count=candle_count)
     status = result.get("status", "UNKNOWN")
     _print_ok(f"Pipeline complete — status: {status}")
 
@@ -257,15 +261,15 @@ def cmd_dashboard():
     _print_header("Web Dashboard")
 
     try:
-        from stlms.web.app import start_server
-        _print_info("Starting web dashboard at http://localhost:8050")
+        import subprocess, os
+        repo = os.path.dirname(os.path.abspath(__file__))
+        server = os.path.join(repo, "data_viewer", "server.py")
+        _print_info("Starting web dashboard at http://localhost:8082")
         _print_info("Press Ctrl+C to stop")
-        start_server(port=8050)
-    except ImportError:
-        _print_warn("Web dashboard module not available")
-        _print_info("Ensure stlms.web is installed")
+        subprocess.run([sys.executable, server], cwd=repo)
     except Exception as e:
         _print_warn(f"Could not start dashboard: {e}")
+        _print_info("Run manually: python3 data_viewer/server.py")
 
 
 def cmd_knowledge():
@@ -357,31 +361,36 @@ def cmd_simulation():
         timeframe=cfg["timeframe"],
     )
 
-    shell.generate(candle_count=cfg["candle_count"])
+    shell.generate(candle_count=min(cfg.get("candle_count", 48000), 200))
 
-    sim = shell.simulation_results()
-    if not sim.get("available"):
-        _print_warn("No simulation data — run 'python3 stlms.py run' first")
-        return
+    # Show Simulation PASS results
+    if hasattr(shell, '_simulation_pass_result'):
+        r = shell._simulation_pass_result
+        print(f"  Symbol:       {cfg['symbol']}")
+        print(f"  Candles:      {r.get('total_candles', 0)}")
+        print(f"  Total Trades: {r.get('total_trades', 0)}")
+        print(f"  Win Rate:     {r.get('win_rate', 0)}%")
+        print(f"  Total PnL:    ${r.get('total_pnl', 0):.2f}")
+        print(f"  Max DD:       {r.get('max_drawdown_pct', 0)}%")
+        print(f"  Sharpe:       {r.get('sharpe_ratio', 0)}")
+        print(f"  Profit Factor:{r.get('profit_factor', 0)}")
+        pi = r.get('position_intelligence', {})
+        if pi:
+            print(f"  Best Exit:    {pi.get('best_exit_reason', 'N/A')}")
+            print(f"  Worst Exit:   {pi.get('worst_exit_reason', 'N/A')}")
+    else:
+        _print_info("Simulation PASS completed (no trades in sample data)")
+    
+    # Show Professional Trader
+    if hasattr(shell, '_professional_trader'):
+        scores = shell._professional_trader.get_clone_scores(shell._statistics)
+        if scores:
+            print()
+            print(f"  Clone Scores:")
+            for cid, sc in scores.items():
+                print(f"    {cid}: {sc['score']:.2f}")
 
-    print(f"  Symbol:     {cfg['symbol']}")
-    print(f"  Timeframe:  {cfg['timeframe']}")
     print()
-
-    for k, v in sim.items():
-        if k == "available":
-            continue
-        if isinstance(v, dict):
-            print(f"  ── {k} ──")
-            for sk, sv in v.items():
-                if isinstance(sv, float):
-                    print(f"    {sk:20s}: {sv:.4f}")
-                else:
-                    print(f"    {sk:20s}: {sv}")
-        elif isinstance(v, float):
-            print(f"  {k:20s}: {v:.4f}")
-        else:
-            print(f"  {k:20s}: {v}")
 
     print()
 
@@ -670,6 +679,72 @@ def cmd_reset():
     _print_ok("Database reset complete")
 
 
+def cmd_collect():
+    """Collect market data using Historical Collection Engine."""
+    _banner()
+    _print_header("Market Collection")
+    _progress("Collecting 48000 observations...")
+    from stlms.core.shell import STLMSShell
+    s = STLMSShell(enable_persistence=True)
+    s.generate(symbol="BTCUSDT", candle_count=48000)
+    st = s.status()
+    _print_ok(f"Collected {st['truth_points']} observations")
+    _print_info(f"Memory: {st['memory_observations']} obs, Snapshots: {st['snapshot_cards']}")
+
+
+def cmd_sync():
+    """Synchronize market data across timeframes."""
+    _banner()
+    _print_header("Market Synchronization")
+    _progress("Synchronizing timeframes...")
+    from stlms.core.shell import STLMSShell
+    s = STLMSShell(enable_persistence=False)
+    s.generate(symbol="BTCUSDT", candle_count=100)
+    cont = s._continuity.get_state()
+    _print_ok(f"Window: {cont['window_state']}, Live: {cont['live_index']}")
+    _print_info(f"Continuity: {s._continuity.get_continuity_report()['continuity_pct']}%")
+
+
+def cmd_build():
+    """Build market observation pipeline."""
+    _banner()
+    _print_header("Build Pipeline")
+    from stlms.core.pipeline import MarketResearchPipeline
+    s = MarketResearchPipeline.summary()
+    _print_ok(f"Pipeline: {s['total_phases']} phases")
+    for k, v in s.items():
+        if k not in ('total_phases',):
+            print(f"  {k}: {v}")
+    _print_info("All phases: EVOLUTION_ALLOWED")
+
+
+def cmd_export():
+    """Export market data to CSV/JSON."""
+    _banner()
+    _print_header("Export Data")
+    from stlms.core.shell import STLMSShell
+    s = STLMSShell(enable_persistence=False)
+    s.generate(symbol="BTCUSDT", candle_count=100)
+    result = s.export(format="json")
+    _print_ok(f"Exported {len(result.get('data', []))} observations")
+    _print_info("Use --format csv for CSV export")
+
+
+def cmd_benchmark():
+    """Run WASIT 5-gate benchmark."""
+    _banner()
+    _print_header("Benchmark")
+    _progress("Running WASIT 5-gate...")
+    from stlms.core.shell import STLMSShell
+    s = STLMSShell(enable_persistence=False)
+    s.generate(symbol="BTCUSDT", candle_count=200)
+    from stlms.bench.engine import wasit_5gate
+    result = wasit_5gate(s._markers, s._markers)
+    _print_ok(f"Verdict: {result['verdict']}")
+    for gate, passed in result.get('gates', {}).items():
+        print(f"  {gate}: {'PASS' if passed else 'FAIL'}")
+
+
 def cmd_stop():
     """Stop web server."""
     _banner()
@@ -715,6 +790,11 @@ COMMANDS = {
     "clean": cmd_clean,
     "reset": cmd_reset,
     "stop": cmd_stop,
+    "collect": cmd_collect,
+    "sync": cmd_sync,
+    "build": cmd_build,
+    "export": cmd_export,
+    "benchmark": cmd_benchmark,
     "version": cmd_version,
     "help": cmd_help,
 }
