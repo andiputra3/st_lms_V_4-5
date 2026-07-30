@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/home/wahid/st_lms_V_4-5/data_viewer/server.py", line 1086, in <module>
+    server = http.server.HTTPServer((HOST, PORT), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.12/socketserver.py", line 473, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
+ST-LMS Data Viewer v1.0 — http://0.0.0.0:8082 — 2026-07-30 05:05:28 WIB
+
+Shutdown
